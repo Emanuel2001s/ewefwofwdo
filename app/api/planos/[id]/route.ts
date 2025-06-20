@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { executeQuery } from "@/lib/db"
 import { getAuthUser } from "@/lib/auth"
+import { RowDataPacket, OkPacket } from "mysql2"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -11,7 +12,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     const id = params.id
-    const plano = await executeQuery("SELECT id, nome, valor FROM planos WHERE id = ?", [id])
+    const plano = (await executeQuery("SELECT id, nome, valor, duracao_dias FROM planos WHERE id = ?", [id])) as RowDataPacket[]
 
     if (plano.length === 0) {
       return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 })
@@ -33,7 +34,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     const id = params.id
-    const { nome, valor } = await request.json()
+    const { nome, valor, duracao_dias } = await request.json()
 
     if (!nome || nome.trim() === "") {
       return NextResponse.json({ error: "Nome do plano é obrigatório" }, { status: 400 })
@@ -43,26 +44,35 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "Valor do plano deve ser maior que zero" }, { status: 400 })
     }
 
+    if (!duracao_dias || isNaN(duracao_dias) || duracao_dias <= 0) {
+      return NextResponse.json({ error: "Duração do plano deve ser maior que zero" }, { status: 400 })
+    }
+
+    if (duracao_dias > 365) {
+      return NextResponse.json({ error: "Duração do plano não pode ser maior que 365 dias" }, { status: 400 })
+    }
+
     // Verificar se o plano existe
-    const plano = await executeQuery("SELECT id FROM planos WHERE id = ?", [id])
+    const plano = (await executeQuery("SELECT id FROM planos WHERE id = ?", [id])) as RowDataPacket[]
 
     if (plano.length === 0) {
       return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 })
     }
 
     // Verificar se já existe outro plano com este nome
-    const existente = await executeQuery("SELECT id FROM planos WHERE nome = ? AND id != ?", [nome, id])
+    const existente = (await executeQuery("SELECT id FROM planos WHERE nome = ? AND id != ?", [nome, id])) as RowDataPacket[]
 
     if (existente.length > 0) {
       return NextResponse.json({ error: "Já existe outro plano com este nome" }, { status: 400 })
     }
 
-    await executeQuery("UPDATE planos SET nome = ?, valor = ? WHERE id = ?", [nome, valor, id])
+    await executeQuery("UPDATE planos SET nome = ?, valor = ?, duracao_dias = ? WHERE id = ?", [nome, valor, duracao_dias, id])
 
     return NextResponse.json({
       id: Number(id),
       nome,
       valor,
+      duracao_dias,
       message: "Plano atualizado com sucesso",
     })
   } catch (error) {
@@ -82,14 +92,14 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const id = params.id
 
     // Verificar se o plano existe
-    const plano = await executeQuery("SELECT id FROM planos WHERE id = ?", [id])
+    const plano = (await executeQuery("SELECT id FROM planos WHERE id = ?", [id])) as RowDataPacket[]
 
     if (plano.length === 0) {
       return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 })
     }
 
     // Verificar se há clientes usando este plano
-    const clientesUsando = await executeQuery("SELECT COUNT(*) as total FROM clientes WHERE plano_id = ?", [id])
+    const clientesUsando = (await executeQuery("SELECT COUNT(*) as total FROM clientes WHERE plano_id = ?", [id])) as RowDataPacket[]
 
     if (clientesUsando[0].total > 0) {
       return NextResponse.json(

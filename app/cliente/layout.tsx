@@ -7,7 +7,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
   const user = await requireAuth("cliente")
 
   if (!user || user.tipo !== "cliente") {
-    redirect("/login?type=cliente")
+    redirect("/")
   }
 
   return <ClienteLayout user={user}>{children}</ClienteLayout>

@@ -49,8 +49,8 @@ export default function RegisterPage() {
     try {
       await register(formData.nome, formData.email, formData.senha, formData.tipo)
 
-      // Redirecionar para login após registro bem-sucedido
-      router.push(`/login?type=${formData.tipo}`)
+      // Redirecionar para página inicial (login) após registro bem-sucedido
+      router.push("/")
     } catch (err) {
       setError("Erro ao registrar. Este email pode já estar em uso.")
     } finally {
@@ -141,7 +141,7 @@ export default function RegisterPage() {
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-center text-sm">
             Já tem uma conta?{" "}
-            <Link href="/login" className="text-blue-600 hover:underline dark:text-blue-400">
+            <Link href="/" className="text-blue-600 hover:underline dark:text-blue-400">
               Faça login
             </Link>
           </div>

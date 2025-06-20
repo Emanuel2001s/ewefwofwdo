@@ -31,27 +31,38 @@ export function ServidoresForm({ servidor = null }: { servidor?: { id: number; n
       })
 
       if (!response.ok) {
-        throw new Error("Erro ao salvar servidor")
+        const errorData = await response.json()
+        console.error("Dados de erro da API (depuração):", JSON.stringify(errorData, null, 2)); // Stringify para ver o conteúdo completo
+
+        toast({
+          title: "Erro",
+          description: errorData.error || "Ocorreu um erro desconhecido ao salvar o servidor.", // Usar diretamente a mensagem do backend
+          variant: "destructive",
+        });
+        setIsLoading(false); // Parar o loading aqui, já que não vamos para o catch
+        return; // Sair da função para não prosseguir
       }
 
       toast({
         title: servidor ? "Servidor atualizado" : "Servidor adicionado",
         description: servidor
-          ? `O servidor ${nome} foi atualizado com sucesso.`
-          : `O servidor ${nome} foi adicionado com sucesso.`,
+          ? `O servidor \"${nome}\" foi atualizado com sucesso.`
+          : `O servidor \"${nome}\" foi adicionado com sucesso.`,
       })
 
-      setNome("")
-      router.refresh()
+      router.push("/admin/servidores")
+      router.refresh() // Força a atualização dos dados na tabela
     } catch (error) {
-      console.error("Erro:", error)
+      console.error("Erro no handleSubmit do ServerForm (fallback do catch):", error) // Detalhar o log do catch
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao salvar o servidor.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.", // Mensagem genérica para erros não-HTTP
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      // O setIsLoading(false) agora é feito dentro do if (!response.ok) e no catch
+      // Pode ser removido daqui ou mantido se houver outras saídas de sucesso/erro
+       // setIsLoading(false)
     }
   }
 

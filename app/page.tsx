@@ -1,69 +1,134 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+"use client"
 
-export default function Home() {
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { loginAuto } from "@/lib/auth"
+import { loginSchema, type LoginFormData } from "@/lib/validations"
+import { useConfig } from "@/components/config-provider"
+import Image from "next/image"
+
+export default function LoginPage() {
+  const router = useRouter()
+  const [usuario, setUsuario] = useState("")
+  const [senha, setSenha] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({})
+  const { nomeSistema, logoUrl } = useConfig()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError("")
+    setFieldErrors({})
+
+    // Validar dados com Zod
+    const validationResult = loginSchema.safeParse({ usuario, senha })
+    
+    if (!validationResult.success) {
+      const errors: {[key: string]: string} = {}
+      validationResult.error.errors.forEach((error) => {
+        if (error.path[0]) {
+          errors[error.path[0] as string] = error.message
+        }
+      })
+      setFieldErrors(errors)
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      // Usa a função loginAuto que tenta admin primeiro, depois cliente
+      const user = await loginAuto(usuario, senha)
+      
+      // Redireciona baseado no tipo de usuário
+      if (user.tipo === "admin") {
+        router.push("/admin/dashboard")
+      } else if (user.tipo === "cliente") {
+        router.push("/cliente/dashboard")
+      }
+    } catch (err) {
+      setError("Usuário ou senha incorretos. Verifique suas credenciais e tente novamente.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:from-slate-950 dark:to-slate-900 p-4">
-      <div className="w-full max-w-5xl text-center">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-6xl mb-6 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-cyan-400">
-          IPTV Manager
-        </h1>
-        <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-2xl mx-auto">
-          Sistema completo para gerenciamento de clientes, servidores e planos de IPTV. Simplifique seu negócio com
-          nossa plataforma intuitiva.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-12">
-          <Card>
-            <CardHeader>
-              <CardTitle>Painel Administrativo</CardTitle>
-              <CardDescription>Gerencie todos os aspectos do seu negócio</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc list-inside text-left space-y-2 text-slate-600 dark:text-slate-400">
-                <li>Dashboard com métricas importantes</li>
-                <li>Gerenciamento de clientes</li>
-                <li>Cadastro de servidores e planos</li>
-                <li>Relatórios e filtros avançados</li>
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button asChild className="w-full">
-                <Link href="/login?type=admin">Acesso Admin</Link>
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Área do Cliente</CardTitle>
-              <CardDescription>Acesse suas informações e serviços</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc list-inside text-left space-y-2 text-slate-600 dark:text-slate-400">
-                <li>Visualize seus dados pessoais</li>
-                <li>Consulte detalhes do seu plano</li>
-                <li>Verifique data de vencimento</li>
-                <li>Histórico de pagamentos</li>
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button asChild className="w-full">
-                <Link href="/login?type=cliente">Área do Cliente</Link>
-              </Button>
-            </CardFooter>
-          </Card>
+      <div className="w-full max-w-sm">
+        {/* Header */}
+        <div className="text-center mb-8">
+          {/* Logo */}
+          {logoUrl && logoUrl !== '/placeholder-logo.png' && (
+            <div className="mb-4 flex justify-center">
+              <Image
+                src={logoUrl}
+                alt="Logo"
+                width={120}
+                height={120}
+                className="max-w-[120px] max-h-[120px] object-contain"
+              />
+            </div>
+          )}
+          
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-cyan-400">
+            {nomeSistema}
+          </h1>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button asChild variant="outline">
-            <Link href="/register">Criar Conta</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/login">Entrar</Link>
-          </Button>
-        </div>
+        {/* Login Card */}
+        <Card className="w-full">
+          <CardContent className="pt-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="text-sm font-medium text-destructive text-center p-3 bg-destructive/10 rounded-md">
+                  {error}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="usuario">Usuário</Label>
+                <Input
+                  id="usuario"
+                  type="text"
+                  placeholder="Digite seu usuário"
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value)}
+                  required
+                  className={fieldErrors.usuario ? "border-destructive" : ""}
+                />
+                {fieldErrors.usuario && (
+                  <p className="text-sm text-destructive">{fieldErrors.usuario}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="senha">Senha</Label>
+                <Input
+                  id="senha"
+                  type="password"
+                  placeholder="Digite sua senha"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  required
+                  className={fieldErrors.senha ? "border-destructive" : ""}
+                />
+                {fieldErrors.senha && (
+                  <p className="text-sm text-destructive">{fieldErrors.senha}</p>
+                )}
+              </div>
+              
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Entrando..." : "Entrar"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

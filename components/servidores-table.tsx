@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -17,14 +17,63 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Edit, Trash2 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationLink,
+  PaginationNext,
+  PaginationEllipsis,
+} from "@/components/ui/pagination"
 
-interface ServidoresTableProps {
-  servidores: { id: number; nome: string }[]
+interface Servidor {
+  id: number
+  nome: string
 }
 
-export function ServidoresTable({ servidores }: ServidoresTableProps) {
+interface ServidoresTableProps {
+  // A prop 'servidores' será removida, pois a tabela buscará seus próprios dados
+}
+
+export function ServidoresTable({ }: ServidoresTableProps) {
   const router = useRouter()
+  const [servidores, setServidores] = useState<Servidor[]>([])
+  const [loading, setLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState<number | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+
+  useEffect(() => {
+    carregarServidores()
+  }, [currentPage, itemsPerPage])
+
+  async function carregarServidores() {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+      })
+      const result = await fetch(`/api/servidores?${params.toString()}`)
+      const data = await result.json()
+      setServidores(data.data)
+      setTotalItems(data.pagination.totalItems)
+      setTotalPages(data.pagination.totalPages)
+      setCurrentPage(data.pagination.currentPage)
+    } catch (error) {
+      console.error("Erro ao carregar servidores:", error)
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao carregar os servidores.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleDelete = async (id: number) => {
     setIsDeleting(id)
@@ -35,7 +84,8 @@ export function ServidoresTable({ servidores }: ServidoresTableProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Erro ao excluir servidor")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Erro ao excluir servidor")
       }
 
       toast({
@@ -43,12 +93,12 @@ export function ServidoresTable({ servidores }: ServidoresTableProps) {
         description: "O servidor foi excluído com sucesso.",
       })
 
-      router.refresh()
+      carregarServidores() // Recarrega os servidores após a exclusão
     } catch (error) {
       console.error("Erro:", error)
       toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao excluir o servidor.",
+        title: "Falha ao Excluir Servidor",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao excluir o servidor.",
         variant: "destructive",
       })
     } finally {
@@ -66,9 +116,15 @@ export function ServidoresTable({ servidores }: ServidoresTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {servidores.length === 0 ? (
+          {loading ? (
             <TableRow>
-              <TableCell colSpan={2} className="text-center py-4">
+              <TableCell colSpan={2} className="text-center py-8">
+                Carregando servidores...
+              </TableCell>
+            </TableRow>
+          ) : servidores.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={2} className="text-center py-8">
                 Nenhum servidor cadastrado.
               </TableCell>
             </TableRow>
@@ -81,7 +137,7 @@ export function ServidoresTable({ servidores }: ServidoresTableProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => router.push(`/admin/servidores/${servidor.id}/editar`)}
+                      onClick={() => router.push(`/admin/servidores/editar/${servidor.id}`)}
                     >
                       <Edit className="h-4 w-4" />
                       <span className="sr-only">Editar servidor</span>
@@ -106,7 +162,8 @@ export function ServidoresTable({ servidores }: ServidoresTableProps) {
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDelete(servidor.id)}
-                            disabled={isDeleting === servidor.id}
+                            aria-disabled={isDeleting === servidor.id || loading}
+                            className={(isDeleting === servidor.id || loading) ? "pointer-events-none opacity-50" : ""}
                           >
                             {isDeleting === servidor.id ? "Excluindo..." : "Excluir"}
                           </AlertDialogAction>
@@ -120,6 +177,33 @@ export function ServidoresTable({ servidores }: ServidoresTableProps) {
           )}
         </TableBody>
       </Table>
+      {/* Controles de Paginação */}
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationPrevious
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            aria-disabled={currentPage === 1 || loading}
+            className={(currentPage === 1 || loading) ? "pointer-events-none opacity-50" : ""}
+          />
+          {[...Array(totalPages)].map((_, index) => (
+            <PaginationItem key={index}>
+              <PaginationLink
+                isActive={currentPage === index + 1}
+                onClick={() => setCurrentPage(index + 1)}
+                aria-disabled={loading}
+                className={loading ? "pointer-events-none opacity-50" : ""}
+              >
+                {index + 1}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationNext
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            aria-disabled={currentPage === totalPages || loading}
+            className={(currentPage === totalPages || loading) ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationContent>
+      </Pagination>
     </div>
   )
 }

@@ -1,13 +1,15 @@
-import { Card } from "@/components/ui/card"
 import { ClienteForm } from "@/components/cliente-form"
 import { executeQuery } from "@/lib/db"
+import { RowDataPacket } from "mysql2"
 
 async function getServidores() {
-  return await executeQuery("SELECT id, nome FROM servidores ORDER BY nome ASC")
+  const result = await executeQuery("SELECT id, nome FROM servidores ORDER BY nome ASC") as RowDataPacket[]
+  return result as { id: number; nome: string; }[]
 }
 
 async function getPlanos() {
-  return await executeQuery("SELECT id, nome, valor FROM planos ORDER BY nome ASC")
+  const result = await executeQuery("SELECT id, nome, valor, duracao_dias FROM planos ORDER BY nome ASC") as RowDataPacket[]
+  return result as { id: number; nome: string; valor: number; duracao_dias: number; }[]
 }
 
 export default async function NovoClientePage() {
@@ -15,15 +17,6 @@ export default async function NovoClientePage() {
   const planos = await getPlanos()
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Novo Cliente</h1>
-        <p className="text-muted-foreground">Cadastre um novo cliente no sistema</p>
-      </div>
-
-      <Card className="p-6">
-        <ClienteForm servidores={servidores} planos={planos} />
-      </Card>
-    </div>
+    <ClienteForm servidores={servidores} planos={planos} />
   )
 }

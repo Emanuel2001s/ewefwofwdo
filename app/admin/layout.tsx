@@ -7,7 +7,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
   const user = await requireAuth("admin")
 
   if (!user || user.tipo !== "admin") {
-    redirect("/login?type=admin")
+    redirect("/")
   }
 
   return <AdminLayout user={user}>{children}</AdminLayout>

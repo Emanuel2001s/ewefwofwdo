@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { executeQuery } from "@/lib/db"
 import { getAuthUser } from "@/lib/auth"
+import { RowDataPacket, OkPacket } from "mysql2"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await getAuthUser()
 
@@ -10,8 +11,29 @@ export async function GET() {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const servidores = await executeQuery("SELECT id, nome FROM servidores ORDER BY nome ASC")
-    return NextResponse.json(servidores)
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get("page") || "1")
+    const limit = parseInt(searchParams.get("limit") || "10")
+    const offset = (page - 1) * limit
+
+    const totalServidoresResult = (await executeQuery("SELECT COUNT(*) as total FROM servidores")) as RowDataPacket[]
+    const totalServidores = totalServidoresResult[0].total
+    const totalPages = Math.ceil(totalServidores / limit)
+
+    const servidores = await executeQuery(
+      "SELECT id, nome FROM servidores ORDER BY nome ASC LIMIT ? OFFSET ?",
+      [limit, offset],
+    )
+
+    return NextResponse.json({
+      data: servidores,
+      pagination: {
+        totalItems: totalServidores,
+        totalPages,
+        currentPage: page,
+        itemsPerPage: limit,
+      },
+    })
   } catch (error) {
     console.error("Erro ao buscar servidores:", error)
     return NextResponse.json({ error: "Erro ao buscar servidores" }, { status: 500 })
@@ -33,13 +55,13 @@ export async function POST(request: Request) {
     }
 
     // Verificar se já existe um servidor com este nome
-    const existente = await executeQuery("SELECT id FROM servidores WHERE nome = ?", [nome])
+    const existente = (await executeQuery("SELECT id FROM servidores WHERE nome = ?", [nome])) as RowDataPacket[]
 
     if (existente.length > 0) {
       return NextResponse.json({ error: "Já existe um servidor com este nome" }, { status: 400 })
     }
 
-    const result = await executeQuery("INSERT INTO servidores (nome) VALUES (?)", [nome])
+    const result = (await executeQuery("INSERT INTO servidores (nome) VALUES (?)", [nome])) as OkPacket
 
     return NextResponse.json(
       {
@@ -51,6 +73,11 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     console.error("Erro ao criar servidor:", error)
-    return NextResponse.json({ error: "Erro ao criar servidor" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? `Erro interno ao criar servidor: ${error.message}` : "Erro interno ao criar servidor",
+      },
+      { status: 500 },
+    )
   }
 }
