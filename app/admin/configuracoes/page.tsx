@@ -40,7 +40,7 @@ export default function ConfiguracoesPage() {
 
   const fetchConfiguracoes = async () => {
     try {
-      const response = await fetch('/api/configuracoes')
+      const response = await fetch('/api/configuracoes?admin=true')
       if (response.ok) {
         const data = await response.json()
         setConfiguracoes(data)

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Exclusão</title>
+</head>
+<body>
+    <h1>Teste de Exclusão</h1>
+    
+    <button onclick="testDeletePlano()">Testar Exclusão Plano ID 4</button>
+    <button onclick="testDeleteServidor()">Testar Exclusão Servidor ID 5</button>
+    
+    <div id="result"></div>
+
+    <script>
+        async function testDeletePlano() {
+            console.log('🧪 Testando exclusão de plano...')
+            
+            try {
+                const response = await fetch('/api/planos/4', {
+                    method: 'DELETE',
+                    credentials: 'include' // Incluir cookies de autenticação
+                })
+                
+                console.log('Status:', response.status)
+                const data = await response.json()
+                console.log('Resposta:', data)
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>Resultado Plano:</h3>
+                    <p>Status: ${response.status}</p>
+                    <p>Resposta: ${JSON.stringify(data, null, 2)}</p>
+                `
+            } catch (error) {
+                console.error('Erro:', error)
+                document.getElementById('result').innerHTML = `
+                    <h3>Erro Plano:</h3>
+                    <p>${error.message}</p>
+                `
+            }
+        }
+
+        async function testDeleteServidor() {
+            console.log('🧪 Testando exclusão de servidor...')
+            
+            try {
+                const response = await fetch('/api/servidores/5', {
+                    method: 'DELETE',
+                    credentials: 'include' // Incluir cookies de autenticação
+                })
+                
+                console.log('Status:', response.status)
+                const data = await response.json()
+                console.log('Resposta:', data)
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>Resultado Servidor:</h3>
+                    <p>Status: ${response.status}</p>
+                    <p>Resposta: ${JSON.stringify(data, null, 2)}</p>
+                `
+            } catch (error) {
+                console.error('Erro:', error)
+                document.getElementById('result').innerHTML = `
+                    <h3>Erro Servidor:</h3>
+                    <p>${error.message}</p>
+                `
+            }
+        }
+    </script>
+</body>
+</html> 

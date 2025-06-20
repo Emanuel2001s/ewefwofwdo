@@ -1,28 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllConfiguracoes, updateConfiguracao, initConfiguracoes, getAdminSupremo } from '@/lib/configuracoes'
 
-// GET - Buscar todas as configurações + dados do admin supremo
-export async function GET() {
+// GET - Buscar todas as configurações (otimizado para rapidez)
+export async function GET(request: NextRequest) {
   try {
-    // Inicializar configurações se necessário
+    const url = new URL(request.url)
+    const includeAdmin = url.searchParams.get('admin') === 'true'
+    
+    // Inicializar configurações se necessário (só na primeira vez)
     await initConfiguracoes()
     
     const configuracoes = await getAllConfiguracoes()
-    const adminSupremo = await getAdminSupremo()
     
-    // Adicionar dados do admin supremo às configurações
-    if (adminSupremo) {
-      configuracoes.push({
-        id: 0,
-        chave: 'admin_nome',
-        valor: adminSupremo.nome,
-        descricao: 'Nome do administrador supremo',
-        created_at: '',
-        updated_at: ''
-      })
+    // Só buscar admin se explicitamente solicitado (para página de configurações)
+    if (includeAdmin) {
+      const adminSupremo = await getAdminSupremo()
+      if (adminSupremo) {
+        configuracoes.push({
+          id: 0,
+          chave: 'admin_nome',
+          valor: adminSupremo.nome,
+          descricao: 'Nome do administrador supremo',
+          created_at: '',
+          updated_at: ''
+        })
+      }
     }
     
-    return NextResponse.json(configuracoes)
+    // Cache por 60 segundos
+    return NextResponse.json(configuracoes, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60'
+      }
+    })
   } catch (error) {
     console.error('Erro ao buscar configurações:', error)
     return NextResponse.json(

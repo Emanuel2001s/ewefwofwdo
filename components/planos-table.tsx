@@ -80,17 +80,25 @@ export function PlanosTable({ }: PlanosTableProps) {
   }
 
   const handleDelete = async (id: number) => {
+    console.log(`🗑️ Iniciando exclusão do plano ID: ${id}`)
     setIsDeleting(id)
 
     try {
+      console.log(`📡 Fazendo requisição DELETE para /api/planos/${id}`)
       const response = await fetch(`/api/planos/${id}`, {
         method: "DELETE",
       })
 
+      console.log(`📊 Status da resposta: ${response.status}`)
+      
       if (!response.ok) {
         const errorData = await response.json()
+        console.error(`❌ Erro na API:`, errorData)
         throw new Error(errorData.error || "Erro ao excluir plano")
       }
+
+      const successData = await response.json()
+      console.log(`✅ Plano excluído com sucesso:`, successData)
 
       toast({
         title: "Plano excluído",
@@ -99,13 +107,14 @@ export function PlanosTable({ }: PlanosTableProps) {
 
       carregarPlanos() // Recarrega os planos após a exclusão
     } catch (error) {
-      console.error("Erro:", error)
+      console.error("❌ Erro completo:", error)
       toast({
         title: "Falha ao Excluir Plano",
         description: error instanceof Error ? error.message : "Ocorreu um erro ao excluir o plano.",
         variant: "destructive",
       })
     } finally {
+      console.log(`🔄 Finalizando exclusão do plano ID: ${id}`)
       setIsDeleting(null)
     }
   }

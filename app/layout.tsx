@@ -6,13 +6,13 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ConfigProvider } from "@/components/config-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { HydrationSafe } from "@/components/hydration-safe"
+import { InstantTitle } from "@/components/instant-title"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "IPTV Manager",
   description: "Sistema de gerenciamento de clientes IPTV",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -22,6 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider 
           attribute="class" 
@@ -29,6 +30,7 @@ export default function RootLayout({
           enableSystem 
         >
           <ConfigProvider>
+            <InstantTitle />
             <HydrationSafe />
           {children}
             <Toaster />

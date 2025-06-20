@@ -77,17 +77,25 @@ export function ServidoresTable({ }: ServidoresTableProps) {
   }
 
   const handleDelete = async (id: number) => {
+    console.log(`🗑️ Iniciando exclusão do servidor ID: ${id}`)
     setIsDeleting(id)
 
     try {
+      console.log(`📡 Fazendo requisição DELETE para /api/servidores/${id}`)
       const response = await fetch(`/api/servidores/${id}`, {
         method: "DELETE",
       })
 
+      console.log(`📊 Status da resposta: ${response.status}`)
+
       if (!response.ok) {
         const errorData = await response.json()
+        console.error(`❌ Erro na API:`, errorData)
         throw new Error(errorData.error || "Erro ao excluir servidor")
       }
+
+      const successData = await response.json()
+      console.log(`✅ Servidor excluído com sucesso:`, successData)
 
       toast({
         title: "Servidor excluído",
@@ -96,13 +104,14 @@ export function ServidoresTable({ }: ServidoresTableProps) {
 
       carregarServidores() // Recarrega os servidores após a exclusão
     } catch (error) {
-      console.error("Erro:", error)
+      console.error("❌ Erro completo:", error)
       toast({
         title: "Falha ao Excluir Servidor",
         description: error instanceof Error ? error.message : "Ocorreu um erro ao excluir o servidor.",
         variant: "destructive",
       })
     } finally {
+      console.log(`🔄 Finalizando exclusão do servidor ID: ${id}`)
       setIsDeleting(null)
     }
   }

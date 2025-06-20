@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export function HydrationSafe() {
+  const [isHydrated, setIsHydrated] = useState(false)
+
   useEffect(() => {
     // Remove atributos problemáticos adicionados por extensões
     const removeExtensionAttributes = () => {
@@ -71,11 +73,15 @@ export function HydrationSafe() {
       ]
     })
 
+    // Marca que a hidratação foi concluída
+    setIsHydrated(true)
+
     return () => {
       clearTimeout(timeoutId)
       observer.disconnect()
     }
   }, [])
 
+  // Não renderiza nada, apenas garante que a hidratação foi concluída
   return null
 } 

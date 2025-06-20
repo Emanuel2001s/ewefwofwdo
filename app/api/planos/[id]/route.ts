@@ -83,25 +83,35 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
+    console.log(`🗑️ [API] Iniciando DELETE do plano ID: ${params.id}`)
+    
     const user = await getAuthUser()
+    console.log(`👤 [API] Usuário autenticado:`, user ? { id: user.id, tipo: user.tipo } : 'null')
 
     if (!user || user.tipo !== "admin") {
+      console.log(`❌ [API] Usuário não autorizado`)
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const id = params.id
+    console.log(`🔍 [API] Verificando se plano ${id} existe...`)
 
     // Verificar se o plano existe
     const plano = (await executeQuery("SELECT id FROM planos WHERE id = ?", [id])) as RowDataPacket[]
+    console.log(`📋 [API] Plano encontrado:`, plano.length > 0 ? 'SIM' : 'NÃO')
 
     if (plano.length === 0) {
+      console.log(`❌ [API] Plano ${id} não encontrado`)
       return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 })
     }
 
     // Verificar se há clientes usando este plano
+    console.log(`🔍 [API] Verificando clientes vinculados ao plano ${id}...`)
     const clientesUsando = (await executeQuery("SELECT COUNT(*) as total FROM clientes WHERE plano_id = ?", [id])) as RowDataPacket[]
+    console.log(`👥 [API] Clientes usando este plano:`, clientesUsando[0].total)
 
     if (clientesUsando[0].total > 0) {
+      console.log(`❌ [API] Não é possível excluir: ${clientesUsando[0].total} clientes vinculados`)
       return NextResponse.json(
         {
           error: "Não é possível excluir este plano pois existem clientes vinculados a ele",
@@ -110,13 +120,15 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       )
     }
 
+    console.log(`🗑️ [API] Executando DELETE do plano ${id}...`)
     await executeQuery("DELETE FROM planos WHERE id = ?", [id])
+    console.log(`✅ [API] Plano ${id} excluído com sucesso`)
 
     return NextResponse.json({
       message: "Plano excluído com sucesso",
     })
   } catch (error) {
-    console.error("Erro ao excluir plano:", error)
+    console.error("❌ [API] Erro ao excluir plano:", error)
     return NextResponse.json({ error: "Erro ao excluir plano" }, { status: 500 })
   }
 }
