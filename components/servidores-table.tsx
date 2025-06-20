@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -106,8 +107,32 @@ export function ServidoresTable({ }: ServidoresTableProps) {
     }
   }
 
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value))
+    setCurrentPage(1) // Reset para primeira página quando muda o número de itens
+  }
+
   return (
-    <div className="rounded-md border">
+    <div className="space-y-4">
+      {/* Seletor de itens por página */}
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Mostrando {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} servidores
+        </p>
+        <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="10">10 por página</SelectItem>
+            <SelectItem value="25">25 por página</SelectItem>
+            <SelectItem value="50">50 por página</SelectItem>
+            <SelectItem value="100">100 por página</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -137,7 +162,7 @@ export function ServidoresTable({ }: ServidoresTableProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => router.push(`/admin/servidores/editar/${servidor.id}`)}
+                      onClick={() => router.push(`/admin/servidores/${servidor.id}/editar`)}
                     >
                       <Edit className="h-4 w-4" />
                       <span className="sr-only">Editar servidor</span>
@@ -162,8 +187,7 @@ export function ServidoresTable({ }: ServidoresTableProps) {
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDelete(servidor.id)}
-                            aria-disabled={isDeleting === servidor.id || loading}
-                            className={(isDeleting === servidor.id || loading) ? "pointer-events-none opacity-50" : ""}
+                            disabled={isDeleting === servidor.id}
                           >
                             {isDeleting === servidor.id ? "Excluindo..." : "Excluir"}
                           </AlertDialogAction>
@@ -204,6 +228,7 @@ export function ServidoresTable({ }: ServidoresTableProps) {
           />
         </PaginationContent>
       </Pagination>
+      </div>
     </div>
   )
 }
