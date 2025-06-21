@@ -11,8 +11,10 @@ import { InstantTitle } from "@/components/instant-title"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
+  title: "Dashboard IPTV",
   description: "Sistema de gerenciamento de clientes IPTV",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1"
 }
 
 export default function RootLayout({

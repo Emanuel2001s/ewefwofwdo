@@ -60,7 +60,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:from-slate-950 dark:to-slate-900 p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           {/* Logo */}
@@ -76,7 +76,7 @@ export default function LoginPage() {
             </div>
           )}
           
-          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-cyan-400">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-cyan-400">
             {nomeSistema}
           </h1>
         </div>

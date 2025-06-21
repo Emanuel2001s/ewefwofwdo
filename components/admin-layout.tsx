@@ -9,7 +9,6 @@ import { LayoutDashboard, Users, Server, Package, BarChart3, Settings, LogOut, M
 import { Button } from "@/components/ui/button"
 import { useTheme } from "next-themes"
 import { logout } from "@/lib/auth"
-import { useMounted } from "@/lib/use-mounted"
 import { useConfig } from "@/components/config-provider"
 
 interface AdminLayoutProps {
@@ -26,8 +25,7 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const mounted = useMounted()
-  const { nomeSistema } = useConfig()
+  const { nomeSistema, mounted } = useConfig()
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, color: "from-blue-500 to-blue-600" },
@@ -49,7 +47,7 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Sidebar para desktop */}
-      <div className="hidden md:flex md:w-72 md:flex-col md:fixed md:inset-y-0">
+      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
         <div className="flex flex-col flex-grow bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-r border-gray-200/50 dark:border-gray-700/50 shadow-2xl overflow-y-auto">
           {/* Header do Sidebar */}
           <div className="flex items-center justify-center h-20 flex-shrink-0 px-6 bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg">
@@ -115,31 +113,39 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
       </div>
 
       {/* Conteúdo principal */}
-      <div className="md:pl-72 flex flex-col flex-1">
+      <div className="lg:pl-64 flex flex-col flex-1">
         {/* Barra superior */}
         <div className="sticky top-0 z-10 flex-shrink-0 flex h-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border-b border-gray-200/50 dark:border-gray-700/50">
           <button 
             type="button" 
-            className="px-6 md:hidden flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg mx-2 my-4 transition-colors" 
+            className="px-4 lg:hidden flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg mx-2 my-4 transition-colors" 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             <Menu className="h-6 w-6 text-gray-600 dark:text-gray-300" />
           </button>
           
-          <div className="flex-1 px-6 flex justify-end items-center">
-            <div className="flex items-center space-x-3">
+          <div className="flex-1 px-4 flex items-center">
+            {/* Título da página em mobile */}
+            <div className="lg:hidden">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {nomeSistema}
+              </h1>
+            </div>
+            
+            {/* Espaçador para empurrar os botões para a direita */}
+            <div className="flex-1"></div>
+            
+            <div className="flex items-center space-x-2">
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={toggleTheme} 
-                className="h-12 w-12 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+                className="h-10 w-10 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
               >
-                {mounted ? (
-                  theme === "dark" ? 
-                    <Sun className="h-5 w-5 text-yellow-500" /> : 
-                    <Moon className="h-5 w-5 text-indigo-500" />
+{mounted && theme === "dark" ? (
+                  <Sun className="h-4 w-4 text-yellow-500" />
                 ) : (
-                  <Moon className="h-5 w-5 text-indigo-500" />
+                  <Moon className="h-4 w-4 text-indigo-500" />
                 )}
               </Button>
               
@@ -147,9 +153,9 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
                 variant="ghost" 
                 size="icon" 
                 onClick={handleLogout} 
-                className="h-12 w-12 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-all duration-200 hover:scale-105"
+                className="h-10 w-10 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-all duration-200"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -157,9 +163,9 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
 
         {/* Menu móvel */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 flex z-40 md:hidden">
+          <div className="fixed inset-0 flex z-40 lg:hidden">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
-            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md shadow-2xl">
+            <div className="relative flex-1 flex flex-col max-w-sm w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md shadow-2xl">
               {/* Header do Menu Móvel */}
               <div className="flex items-center justify-center h-20 flex-shrink-0 px-6 bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg">
                 <div className="flex items-center gap-3">

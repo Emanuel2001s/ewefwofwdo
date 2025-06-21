@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, Settings, LogOut, Menu, Moon, Sun, User } from "lucide-react"
@@ -25,12 +25,7 @@ export function ClienteLayout({ children, user }: ClienteLayoutProps) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const { nomeSistema } = useConfig()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const { nomeSistema, mounted } = useConfig()
 
   const navigation = [
     { name: "Dashboard", href: "/cliente/dashboard", icon: LayoutDashboard },
@@ -48,7 +43,7 @@ export function ClienteLayout({ children, user }: ClienteLayoutProps) {
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-slate-900">
       {/* Sidebar para desktop */}
-      <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
         <div className="flex flex-col flex-grow border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-y-auto">
           <div className="flex items-center justify-center h-16 flex-shrink-0 px-4 bg-blue-600 dark:bg-blue-800">
             <h1 className="text-xl font-bold text-white">{nomeSistema}</h1>
@@ -95,19 +90,29 @@ export function ClienteLayout({ children, user }: ClienteLayoutProps) {
       </div>
 
       {/* Conteúdo principal */}
-      <div className="md:pl-64 flex flex-col flex-1">
+      <div className="lg:pl-64 flex flex-col flex-1">
         {/* Barra superior */}
         <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white dark:bg-slate-950 shadow dark:shadow-slate-800/50">
-          <button type="button" className="px-4 md:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          <button type="button" className="px-4 lg:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
             <Menu className="h-6 w-6 text-gray-500 dark:text-gray-400" />
           </button>
-          <div className="flex-1 px-4 flex justify-end">
-            <div className="ml-4 flex items-center md:ml-6 space-x-3">
-              <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full">
-                {mounted && theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <div className="flex-1 px-4 flex items-center">
+            {/* Título da página em mobile */}
+            <div className="lg:hidden">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {nomeSistema}
+              </h1>
+            </div>
+            
+            {/* Espaçador para empurrar os botões para a direita */}
+            <div className="flex-1"></div>
+            
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-10 w-10 rounded-full">
+                {mounted && theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full">
-                <LogOut className="h-5 w-5" />
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-10 w-10 rounded-full">
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -115,9 +120,9 @@ export function ClienteLayout({ children, user }: ClienteLayoutProps) {
 
         {/* Menu móvel */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 flex z-40 md:hidden">
+          <div className="fixed inset-0 flex z-40 lg:hidden">
             <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsMobileMenuOpen(false)}></div>
-            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white dark:bg-slate-950">
+            <div className="relative flex-1 flex flex-col max-w-sm w-full bg-white dark:bg-slate-950">
               <div className="flex items-center justify-center h-16 flex-shrink-0 px-4 bg-blue-600 dark:bg-blue-800">
                 <h1 className="text-xl font-bold text-white">{nomeSistema}</h1>
               </div>

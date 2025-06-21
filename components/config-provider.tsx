@@ -8,6 +8,7 @@ interface ConfigContextType {
   logoUrl: string
   refreshConfig: () => void
   isLoaded: boolean
+  mounted: boolean
 }
 
 const ConfigContext = createContext<ConfigContextType>({
@@ -15,7 +16,8 @@ const ConfigContext = createContext<ConfigContextType>({
   faviconUrl: '/favicon.ico',
   logoUrl: '/placeholder-logo.png',
   refreshConfig: () => {},
-  isLoaded: true
+  isLoaded: true,
+  mounted: false
 })
 
 export function useConfig() {
@@ -27,21 +29,29 @@ interface ConfigProviderProps {
 }
 
 export function ConfigProvider({ children }: ConfigProviderProps) {
-  // Tentar carregar do localStorage primeiro (instantâneo)
-  const getStoredValue = (key: string, defaultValue: string) => {
-    if (typeof window === 'undefined') return defaultValue
+  // Estados iniciais padrões para evitar problemas de hidratação
+  const [nomeSistema, setNomeSistema] = useState('Dashboard IPTV')
+  const [faviconUrl, setFaviconUrl] = useState('/favicon.ico')
+  const [logoUrl, setLogoUrl] = useState('/placeholder-logo.png')
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Função para carregar valores do localStorage após montagem
+  const loadStoredValues = () => {
+    if (typeof window === 'undefined') return
+    
     try {
-      const stored = localStorage.getItem(`config_${key}`)
-      return stored || defaultValue
-    } catch {
-      return defaultValue
+      const storedNome = localStorage.getItem('config_nome_sistema')
+      const storedFavicon = localStorage.getItem('config_favicon_url')
+      const storedLogo = localStorage.getItem('config_logo_url')
+      
+      if (storedNome) setNomeSistema(storedNome)
+      if (storedFavicon) setFaviconUrl(storedFavicon)
+      if (storedLogo) setLogoUrl(storedLogo)
+    } catch (error) {
+      console.log('Erro ao carregar configurações do localStorage')
     }
   }
-
-  const [nomeSistema, setNomeSistema] = useState(() => getStoredValue('nome_sistema', ''))
-  const [faviconUrl, setFaviconUrl] = useState(() => getStoredValue('favicon_url', '/favicon.ico'))
-  const [logoUrl, setLogoUrl] = useState(() => getStoredValue('logo_url', '/placeholder-logo.png'))
-  const [isLoaded, setIsLoaded] = useState(true) // Sempre começa carregado
 
   const fetchConfig = async () => {
     try {
@@ -122,11 +132,15 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
   }
 
   useEffect(() => {
-    // Aguardar hidratação completa antes de executar
+    // Aguardar hidratação e marcar como montado
+    setMounted(true)
+    loadStoredValues()
+    setIsLoaded(true)
+    
+    // Carregar configurações do servidor em background
     const timer = setTimeout(() => {
-      // Carregar configurações silenciosamente em background
-    fetchConfig()
-    }, 500) // Delay maior para garantir hidratação completa
+      fetchConfig()
+    }, 1000)
     
     return () => clearTimeout(timer)
   }, [])
@@ -157,7 +171,8 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       faviconUrl,
       logoUrl,
       refreshConfig,
-      isLoaded
+      isLoaded,
+      mounted
     }}>
       {children}
     </ConfigContext.Provider>

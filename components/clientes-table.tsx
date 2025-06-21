@@ -31,6 +31,7 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from "@/components/ui/pagination"
+import { ClientMobileCard } from "@/components/ui/client-mobile-card"
 
 interface Cliente {
   id: number
@@ -202,8 +203,9 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
+      <div className="space-y-4">
+        {/* Barra de busca */}
+        <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nome ou whatsapp..."
@@ -212,83 +214,97 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
             onChange={(e) => setFiltro(e.target.value)}
           />
         </div>
-        <Select value={servidorFiltro} onValueChange={setServidorFiltro}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Servidor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os servidores</SelectItem>
-            {servidores.map((servidor) => (
-              <SelectItem key={servidor.id} value={servidor.nome}>
-                {servidor.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFiltro} onValueChange={setStatusFiltro}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="ativo">Ativo</SelectItem>
-            <SelectItem value="inativo">Inativo</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={vencimentoFiltro} onValueChange={setVencimentoFiltro}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Vencimento" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="vencendo_hoje">🔥 Vencendo Hoje</SelectItem>
-            <SelectItem value="vencido">❌ Vencidos</SelectItem>
-            <SelectItem value="vencendo_proximos_dias">⏰ Próximos 7 Dias</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="10">10 por página</SelectItem>
-            <SelectItem value="25">25 por página</SelectItem>
-            <SelectItem value="50">50 por página</SelectItem>
-            <SelectItem value="100">100 por página</SelectItem>
-          </SelectContent>
-        </Select>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" disabled={selectedClients.length === 0 || isDeleting === 0}>
-              {isDeleting === 0 ? "Excluindo..." : `Excluir Selecionados (${selectedClients.length})`}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar exclusão em massa</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir {selectedClients.length} cliente(s) selecionado(s)? Esta ação não pode ser
-                desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteSelected}>
-                {isDeleting === 0 ? "Excluindo..." : "Excluir"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        
+        {/* Filtros */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Select value={servidorFiltro} onValueChange={setServidorFiltro}>
+            <SelectTrigger>
+              <SelectValue placeholder="Servidor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os servidores</SelectItem>
+              {servidores.map((servidor) => (
+                <SelectItem key={servidor.id} value={servidor.nome}>
+                  {servidor.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={statusFiltro} onValueChange={setStatusFiltro}>
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="ativo">Ativo</SelectItem>
+              <SelectItem value="inativo">Inativo</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={vencimentoFiltro} onValueChange={setVencimentoFiltro}>
+            <SelectTrigger>
+              <SelectValue placeholder="Vencimento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="vencendo_hoje">🔥 Vencendo Hoje</SelectItem>
+              <SelectItem value="vencido">❌ Vencidos</SelectItem>
+              <SelectItem value="vencendo_proximos_dias">⏰ Próximos 7 Dias</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 por página</SelectItem>
+              <SelectItem value="25">25 por página</SelectItem>
+              <SelectItem value="50">50 por página</SelectItem>
+              <SelectItem value="100">100 por página</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                disabled={selectedClients.length === 0 || isDeleting === 0}
+                className="col-span-2 sm:col-span-1"
+              >
+                {isDeleting === 0 ? "Excluindo..." : `Excluir (${selectedClients.length})`}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar exclusão em massa</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir {selectedClients.length} cliente(s) selecionado(s)? Esta ação não pode ser
+                  desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteSelected}>
+                  {isDeleting === 0 ? "Excluindo..." : "Excluir"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       {/* Informações da paginação */}
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+        <p className="text-sm text-gray-600 dark:text-gray-400 text-center sm:text-left">
           Mostrando {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} clientes
         </p>
       </div>
 
-      <div className="rounded-md border">
+      {/* Tabela Desktop */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -373,6 +389,28 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Cards Mobile */}
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400">Carregando clientes...</p>
+          </div>
+        ) : clientesFiltrados.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400">Nenhum cliente encontrado.</p>
+          </div>
+        ) : (
+          clientesFiltrados.map((cliente) => (
+            <ClientMobileCard 
+              key={cliente.id} 
+              cliente={cliente} 
+              onDelete={handleDelete}
+              isDeleting={isDeleting}
+            />
+          ))
+        )}
       </div>
       <Pagination className="mt-4">
         <PaginationContent>

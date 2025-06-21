@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, Server, CreditCard, TrendingUp, UserCheck, UserX, Activity, Database, DollarSign } from "lucide-react"
 import { executeQuery } from "@/lib/db"
 import { RowDataPacket } from "mysql2"
+import { ResponsiveContainer, ResponsivePageHeader, ResponsiveGrid } from "@/components/ui/responsive-container"
 
 async function getDashboardStats() {
   // Buscar estatísticas em paralelo
@@ -126,25 +127,24 @@ export default async function DashboardPage() {
   const totalActivities = stats.clientes.total + activities.renewed.length + activities.recent.length
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <ResponsiveContainer>
       {/* Header da página */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Dashboard
-        </h1>
-      </div>
+      <ResponsivePageHeader 
+        title="Dashboard"
+        description="Visão geral do sistema de IPTV"
+      />
 
       {/* Cards de estatísticas */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <ResponsiveGrid cols={{ default: 1, sm: 2, lg: 4 }} className="mb-6 sm:mb-8">
         <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-blue-600 text-white rounded-t-lg">
             <CardTitle className="text-sm font-medium">
               Total Clientes
             </CardTitle>
-            <Users className="h-5 w-5" />
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
           </CardHeader>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+          <CardContent className="pt-3 sm:pt-4">
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1">
               {stats.clientes.total}
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -203,7 +203,7 @@ export default async function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </ResponsiveGrid>
 
       {/* Seção de gráficos e atividades */}
       <div className="grid gap-6 lg:grid-cols-7">
@@ -374,6 +374,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </ResponsiveContainer>
   )
 }

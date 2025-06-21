@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { executeQuery } from '@/lib/db'
 import { updateConfiguracao } from '@/lib/configuracoes'
 
 export async function POST(request: NextRequest) {
@@ -36,30 +35,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Criar diretório se não existir
-    const uploadDir = join(process.cwd(), 'public', 'uploads')
-    try {
-      await mkdir(uploadDir, { recursive: true })
-    } catch (error) {
-      // Diretório já existe
-    }
-
     // Gerar nome do arquivo
     const fileExtension = file.name.split('.').pop()
     const fileName = tipo === 'favicon' 
       ? `favicon.${fileExtension}` 
       : `logo.${fileExtension}`
-    
-    const filePath = join(uploadDir, fileName)
-    const publicPath = `/uploads/${fileName}`
 
-    // Salvar arquivo
+    // Converter arquivo para buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
 
-    // Atualizar configuração no banco
+    // Salvar arquivo como BLOB no banco de dados
+    const columnData = tipo === 'favicon' ? 'favicon_data' : 'logo_data'
+    const columnType = tipo === 'favicon' ? 'favicon_type' : 'logo_type'
+    
+    // Primeiro, verificar se já existe uma linha para esta configuração
     const configKey = tipo === 'favicon' ? 'favicon_url' : 'logo_url'
+    const existingRows = await executeQuery(
+      'SELECT id FROM configuracoes WHERE chave = ? LIMIT 1',
+      [configKey]
+    ) as any[]
+
+    if (existingRows.length > 0) {
+      // Atualizar linha existente
+      await executeQuery(
+        `UPDATE configuracoes SET ${columnData} = ?, ${columnType} = ? WHERE chave = ?`,
+        [buffer, file.type, configKey]
+      )
+    } else {
+      // Criar nova linha
+      await executeQuery(
+        `INSERT INTO configuracoes (chave, valor, ${columnData}, ${columnType}, descricao) VALUES (?, ?, ?, ?, ?)`,
+        [
+          configKey,
+          `/api/assets/${tipo}`, // URL da API que serve o arquivo
+          buffer,
+          file.type,
+          `${tipo === 'favicon' ? 'Favicon' : 'Logo'} do sistema`
+        ]
+      )
+    }
+
+    const publicPath = `/api/assets/${tipo}`
+
+    // Atualizar configuração no banco (valor da URL)
     const success = await updateConfiguracao(configKey, publicPath)
 
     if (!success) {
