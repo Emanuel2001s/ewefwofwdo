@@ -141,7 +141,7 @@ export function ServidoresTable({ }: ServidoresTableProps) {
         </Select>
       </div>
 
-      <div className="rounded-md border">
+    <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>

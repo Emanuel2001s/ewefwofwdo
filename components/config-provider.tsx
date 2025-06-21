@@ -125,7 +125,7 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
     // Aguardar hidratação completa antes de executar
     const timer = setTimeout(() => {
       // Carregar configurações silenciosamente em background
-      fetchConfig()
+    fetchConfig()
     }, 500) // Delay maior para garantir hidratação completa
     
     return () => clearTimeout(timer)

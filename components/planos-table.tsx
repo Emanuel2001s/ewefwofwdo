@@ -90,7 +90,7 @@ export function PlanosTable({ }: PlanosTableProps) {
       })
 
       console.log(`📊 Status da resposta: ${response.status}`)
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         console.error(`❌ Erro na API:`, errorData)
@@ -161,7 +161,7 @@ export function PlanosTable({ }: PlanosTableProps) {
         </Select>
       </div>
 
-      <div className="rounded-md border">
+    <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>

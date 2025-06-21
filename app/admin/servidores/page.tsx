@@ -19,9 +19,9 @@ import { toast } from "@/components/ui/use-toast"
 import { useState, useEffect } from "react"
 
 interface Servidor {
-  id: number
-  nome: string
-  clientes_ativos: number
+    id: number
+    nome: string
+    clientes_ativos: number
 }
 
 export default function ServidoresPage() {
@@ -167,7 +167,7 @@ export default function ServidoresPage() {
                     >
                       <Trash2 className="mr-1 h-3 w-3" />
                       {isDeleting === servidor.id ? "Excluindo..." : "Excluir"}
-                    </Button>
+                </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>

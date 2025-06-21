@@ -19,11 +19,11 @@ import { toast } from "@/components/ui/use-toast"
 import { useState, useEffect } from "react"
 
 interface Plano {
-  id: number
-  nome: string
-  valor: number
-  duracao_dias: number
-  clientes_ativos: number
+    id: number
+    nome: string
+    valor: number
+    duracao_dias: number
+    clientes_ativos: number
 }
 
 export default function PlanosPage() {
@@ -194,7 +194,7 @@ export default function PlanosPage() {
                     >
                       <Trash2 className="mr-1 h-3 w-3" />
                       {isDeleting === plano.id ? "Excluindo..." : "Excluir"}
-                    </Button>
+                </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>

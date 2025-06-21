@@ -15,16 +15,16 @@ export async function GET(request: NextRequest) {
     // Só buscar admin se explicitamente solicitado (para página de configurações)
     if (includeAdmin) {
       const adminSupremo = await getAdminSupremo()
-      if (adminSupremo) {
-        configuracoes.push({
-          id: 0,
-          chave: 'admin_nome',
-          valor: adminSupremo.nome,
-          descricao: 'Nome do administrador supremo',
-          created_at: '',
-          updated_at: ''
-        })
-      }
+    if (adminSupremo) {
+      configuracoes.push({
+        id: 0,
+        chave: 'admin_nome',
+        valor: adminSupremo.nome,
+        descricao: 'Nome do administrador supremo',
+        created_at: '',
+        updated_at: ''
+      })
+    }
     }
     
     // Cache por 60 segundos
