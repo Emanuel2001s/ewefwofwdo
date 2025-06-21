@@ -74,8 +74,8 @@ export function TabelaClientesPaginada({ clientes }: TabelaClientesPaginadaProps
         </CardTitle>
         
         {/* Filtros */}
-        <div className="flex flex-col sm:flex-row gap-4 pt-4">
-          <div className="relative flex-1">
+        <div className="space-y-4 pt-4">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Buscar por nome, WhatsApp, plano ou servidor..."
@@ -85,28 +85,30 @@ export function TabelaClientesPaginada({ clientes }: TabelaClientesPaginadaProps
             />
           </div>
           
-          <Select value={statusFilter} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              <SelectItem value="ativo">Apenas ativos</SelectItem>
-              <SelectItem value="inativo">Apenas inativos</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <Select value={statusFilter} onValueChange={handleStatusChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os status</SelectItem>
+                <SelectItem value="ativo">Apenas ativos</SelectItem>
+                <SelectItem value="inativo">Apenas inativos</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10 por página</SelectItem>
-              <SelectItem value="25">25 por página</SelectItem>
-              <SelectItem value="50">50 por página</SelectItem>
-              <SelectItem value="100">100 por página</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 por página</SelectItem>
+                <SelectItem value="25">25 por página</SelectItem>
+                <SelectItem value="50">50 por página</SelectItem>
+                <SelectItem value="100">100 por página</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardHeader>
       
@@ -119,8 +121,8 @@ export function TabelaClientesPaginada({ clientes }: TabelaClientesPaginadaProps
           </p>
         </div>
 
-        {/* Tabela */}
-        <div className="overflow-x-auto">
+        {/* Tabela Desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -173,20 +175,88 @@ export function TabelaClientesPaginada({ clientes }: TabelaClientesPaginadaProps
           </table>
         </div>
 
+        {/* Cards Mobile */}
+        <div className="md:hidden space-y-4">
+          {currentClientes.map((cliente) => (
+            <Card key={cliente.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {cliente.nome}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {cliente.whatsapp}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    cliente.status === 'ativo' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+                  }`}>
+                    {cliente.status}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Plano:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{cliente.plano_nome}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Valor:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {Number(cliente.plano_valor || 0).toLocaleString("pt-BR", { 
+                        style: "currency", 
+                        currency: "BRL" 
+                      })}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Servidor:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{cliente.servidor_nome}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Vencimento:</span>
+                    <div className="text-right">
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {new Date(cliente.data_vencimento).toLocaleDateString("pt-BR")}
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        cliente.dias_vencimento < 0 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+                          : cliente.dias_vencimento <= 7
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300'
+                          : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                      }`}>
+                        {cliente.dias_vencimento < 0 ? `${Math.abs(cliente.dias_vencimento)} dias em atraso` : `${cliente.dias_vencimento} dias`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
         {/* Controles de paginação */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
             <Button
               variant="outline"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto"
             >
               <ChevronLeft className="h-4 w-4" />
-              Anterior
+              <span className="hidden sm:inline">Anterior</span>
+              <span className="sm:hidden">Ant</span>
             </Button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto">
               {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                 let pageNumber;
                 if (totalPages <= 7) {
@@ -217,9 +287,10 @@ export function TabelaClientesPaginada({ clientes }: TabelaClientesPaginadaProps
               variant="outline"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto"
             >
-              Próximo
+              <span className="hidden sm:inline">Próximo</span>
+              <span className="sm:hidden">Prox</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
