@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
     
     // Primeiro, verificar se já existe uma linha para esta configuração
     const configKey = tipo === 'favicon' ? 'favicon_url' : 'logo_url'
+    const timestamp = Date.now()
+    const publicPath = `/api/assets/${tipo}?v=${timestamp}`
+    
     const existingRows = await executeQuery(
       'SELECT id FROM configuracoes WHERE chave = ? LIMIT 1',
       [configKey]
@@ -59,8 +62,8 @@ export async function POST(request: NextRequest) {
     if (existingRows.length > 0) {
       // Atualizar linha existente
       await executeQuery(
-        `UPDATE configuracoes SET ${columnData} = ?, ${columnType} = ? WHERE chave = ?`,
-        [buffer, file.type, configKey]
+        `UPDATE configuracoes SET valor = ?, ${columnData} = ?, ${columnType} = ? WHERE chave = ?`,
+        [publicPath, buffer, file.type, configKey]
       )
     } else {
       // Criar nova linha
@@ -68,15 +71,13 @@ export async function POST(request: NextRequest) {
         `INSERT INTO configuracoes (chave, valor, ${columnData}, ${columnType}, descricao) VALUES (?, ?, ?, ?, ?)`,
         [
           configKey,
-          `/api/assets/${tipo}`, // URL da API que serve o arquivo
+          publicPath, // URL da API que serve o arquivo
           buffer,
           file.type,
           `${tipo === 'favicon' ? 'Favicon' : 'Logo'} do sistema`
         ]
       )
     }
-
-    const publicPath = `/api/assets/${tipo}`
 
     // Atualizar configuração no banco (valor da URL)
     const success = await updateConfiguracao(configKey, publicPath)
