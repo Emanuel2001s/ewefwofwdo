@@ -135,7 +135,7 @@ export default async function DashboardPage() {
       />
 
       {/* Cards de estatísticas */}
-      <ResponsiveGrid cols={{ default: 1, sm: 2, lg: 4 }} className="mb-6 sm:mb-8">
+      <ResponsiveGrid cols={{ default: 1, sm: 2, md: 4, lg: 4 }} className="mb-6 sm:mb-8">
         <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-blue-600 text-white rounded-t-lg">
             <CardTitle className="text-sm font-medium">

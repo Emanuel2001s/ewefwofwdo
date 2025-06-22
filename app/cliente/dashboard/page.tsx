@@ -6,6 +6,7 @@ import { getAuthUser } from "@/lib/auth"
 import { format, differenceInDays, isPast, isToday } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { RowDataPacket } from "mysql2"
+import { ClienteDashboardMobile } from "@/components/ui/client-dashboard-mobile"
 
 async function getClienteData(usuario: string) {
   const cliente = await executeQuery(
@@ -117,11 +118,11 @@ export default async function ClienteDashboard() {
 
   if (!cliente) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Dashboard</h1>
-            <p className="text-gray-600 dark:text-gray-300">Bem-vindo ao seu painel de cliente</p>
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-2">Dashboard</h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Bem-vindo ao seu painel de cliente</p>
           </div>
 
           <Card className="shadow-xl border-0">
@@ -143,7 +144,7 @@ export default async function ClienteDashboard() {
   const statusVencimento = getStatusVencimento(dataVencimento)
 
   const getDispositivoIcon = (dispositivo: string) => {
-    const iconClass = "h-6 w-6"
+    const iconClass = "h-5 w-5 sm:h-6 sm:w-6"
     switch (dispositivo) {
       case "TV":
         return <Tv className={iconClass} />
@@ -159,11 +160,21 @@ export default async function ClienteDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4 sm:p-6">
+      {/* Mobile Layout - Visível apenas em telas pequenas */}
+      <div className="block md:hidden max-w-md mx-auto">
+        <ClienteDashboardMobile 
+          cliente={cliente} 
+          statusVencimento={statusVencimento} 
+          user={user} 
+        />
+      </div>
+
+      {/* Desktop Layout - Visível apenas em telas maiores */}
+      <div className="hidden md:block max-w-6xl mx-auto space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <p className="text-xl text-gray-600 dark:text-gray-300">
+        <div className="text-center mb-6 sm:mb-8">
+          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300">
             Olá, <span className="font-semibold text-blue-600 dark:text-blue-400">{user.nome}</span>! 👋
           </p>
         </div>
@@ -171,60 +182,60 @@ export default async function ClienteDashboard() {
         {/* Status do Plano - Destaque Principal */}
         <Card className={`${statusVencimento.bgColor} ${statusVencimento.borderColor} border-2 shadow-2xl overflow-hidden`}>
           <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className={`p-3 rounded-full ${statusVencimento.color} text-white shadow-lg`}>
+                <div className={`p-2 sm:p-3 rounded-full ${statusVencimento.color} text-white shadow-lg`}>
                   {statusVencimento.icon}
                 </div>
                 <div>
-                  <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <CardTitle className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                     Status do Plano
                   </CardTitle>
-                  <CardDescription className="text-xl font-semibold">
+                  <CardDescription className="text-base sm:text-xl font-semibold">
                     {statusVencimento.description}
                   </CardDescription>
                 </div>
               </div>
-              <div className="text-right">
-                <Badge variant={statusVencimento.variant} className="text-sm px-4 py-2 font-semibold">
+              <div className="flex justify-center sm:justify-end">
+                <Badge variant={statusVencimento.variant} className="text-xs sm:text-sm px-3 sm:px-4 py-1 sm:py-2 font-semibold">
                   {statusVencimento.label}
                 </Badge>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between bg-white/50 dark:bg-gray-800/50 rounded-xl p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white/50 dark:bg-gray-800/50 rounded-xl p-4 sm:p-6">
               <div className="flex items-center gap-3">
-                <CalendarIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+                <CalendarIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600 dark:text-gray-300" />
                 <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Data de Vencimento</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Data de Vencimento</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                     {format(dataVencimento, "dd/MM/yyyy", { locale: ptBR })}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Plano Atual</p>
-                <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{cliente.plano_nome}</p>
+              <div className="text-center sm:text-right">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Plano Atual</p>
+                <p className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">{cliente.plano_nome}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Grid Principal - 2 Cards */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
           <Card className="hover:shadow-lg transition-shadow duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-green-600 text-white rounded-t-lg">
-              <CardTitle className="text-xl font-medium">
+              <CardTitle className="text-base sm:text-xl font-medium">
                 Status da Conta
               </CardTitle>
-              <UserCheck className="h-5 w-5" />
+              <UserCheck className="h-4 w-4 sm:h-5 sm:w-5" />
             </CardHeader>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+              <div className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
                 {cliente.status === 'ativo' ? 'Ativo' : 'Inativo'}
               </div>
-              <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
+              <p className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">
                 {statusVencimento.description}
               </p>
             </CardContent>
@@ -232,16 +243,16 @@ export default async function ClienteDashboard() {
 
           <Card className="hover:shadow-lg transition-shadow duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-blue-600 text-white rounded-t-lg">
-              <CardTitle className="text-xl font-medium">
+              <CardTitle className="text-base sm:text-xl font-medium">
                 Plano Atual
               </CardTitle>
-              <Package className="h-5 w-5" />
+              <Package className="h-4 w-4 sm:h-5 sm:w-5" />
             </CardHeader>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+              <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white mb-1">
                 {cliente.plano_nome}
               </div>
-              <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+              <p className="text-base sm:text-lg font-semibold text-blue-600 dark:text-blue-400">
                 {cliente.plano_valor?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/mês
               </p>
             </CardContent>
@@ -251,50 +262,50 @@ export default async function ClienteDashboard() {
         {/* Dispositivos - Card Expandido */}
         <Card className="shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
           <CardHeader className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-t-lg">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Settings className="h-6 w-6" />
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
               Dispositivos Liberados
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-8">
+          <CardContent className="p-4 sm:p-8">
             {dispositivos.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
                   {dispositivos.map((dispositivo: string) => (
                     <div key={dispositivo} className="group hover:scale-105 transition-transform duration-200">
-                      <div className="flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 border border-indigo-200 dark:border-gray-500 shadow-lg">
-                        <div className="p-3 rounded-full bg-indigo-500 text-white shadow-lg group-hover:bg-indigo-600 transition-colors">
+                      <div className="flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 border border-indigo-200 dark:border-gray-500 shadow-lg">
+                        <div className="p-2 sm:p-3 rounded-full bg-indigo-500 text-white shadow-lg group-hover:bg-indigo-600 transition-colors">
                           {getDispositivoIcon(dispositivo)}
                         </div>
-                        <span className="font-semibold text-gray-900 dark:text-white text-center">{dispositivo}</span>
+                        <span className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white text-center">{dispositivo}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-full bg-blue-500 text-white">
-                        <Settings className="h-5 w-5" />
+                        <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                       </div>
                       <div>
-                        <p className="font-semibold text-blue-900 dark:text-blue-100">Total de Dispositivos</p>
-                        <p className="text-sm text-blue-700 dark:text-blue-300">Dispositivos ativos na sua conta</p>
+                        <p className="font-semibold text-sm sm:text-base text-blue-900 dark:text-blue-100">Total de Dispositivos</p>
+                        <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">Dispositivos ativos na sua conta</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{dispositivos.length}</p>
-                      <p className="text-sm text-blue-600 dark:text-blue-400">liberados</p>
+                    <div className="text-center sm:text-right">
+                      <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{dispositivos.length}</p>
+                      <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">liberados</p>
                     </div>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="text-center py-12">
-                <div className="p-4 rounded-full bg-gray-100 dark:bg-gray-700 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <Settings className="h-8 w-8 text-gray-400" />
+              <div className="text-center py-8 sm:py-12">
+                <div className="p-3 sm:p-4 rounded-full bg-gray-100 dark:bg-gray-700 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 flex items-center justify-center">
+                  <Settings className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
                 </div>
-                <p className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-2">Nenhum dispositivo habilitado</p>
+                <p className="text-base sm:text-lg font-medium text-gray-500 dark:text-gray-400 mb-2">Nenhum dispositivo habilitado</p>
                 <p className="text-sm text-gray-400 dark:text-gray-500">Entre em contato com o suporte para liberar dispositivos</p>
               </div>
             )}
