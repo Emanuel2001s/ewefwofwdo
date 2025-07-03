@@ -1,5 +1,3 @@
-"use server"
-
 import * as mysql from "mysql2/promise"
 import { RowDataPacket, OkPacket } from "mysql2/promise"
 
@@ -7,44 +5,61 @@ import { RowDataPacket, OkPacket } from "mysql2/promise"
 const cache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_TTL = 30000 // 30 segundos
 
-// Pool de conexões para melhor performance
-let pool: mysql.Pool | null = null
+// Tipagem para o objeto global que armazenará o pool
+declare const global: {
+  mysqlPool: mysql.Pool | null;
+};
 
 // Configuração do pool de conexões
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  connectionLimit: 2, // Reduzindo para apenas 2 conexões simultâneas
-  queueLimit: 0,
+const dbConfig: mysql.PoolOptions = {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'dashboard_iptv',
+  connectionLimit: 10, // Aumentado para 10 para melhor performance
+  queueLimit: 20,
+  waitForConnections: true,
+  idleTimeout: 60000, // 1 minuto
   multipleStatements: false,
+  charset: 'utf8mb4'
 }
 
-// Função para obter o pool de conexões
-function getPool() {
-  if (!pool) {
-    pool = mysql.createPool(dbConfig)
-    console.log('Pool de conexões criado com limite de', dbConfig.connectionLimit, 'conexões')
+// Função para obter o pool de conexões (Singleton Pattern)
+function getPool(): mysql.Pool {
+  if (global.mysqlPool) {
+    return global.mysqlPool;
+  }
+
+    try {
+    const pool = mysql.createPool(dbConfig);
+    console.log('✅ Novo Pool de Conexões MySQL criado.');
     
     // Configurar eventos do pool para monitoramento
     pool.on('connection', (connection) => {
-      console.log('Nova conexão estabelecida como id ' + connection.threadId)
-    })
+      console.log(`🔌 Nova conexão MySQL estabelecida com ID ${connection.threadId}`);
+    });
     
     pool.on('release', (connection) => {
-      console.log('Conexão %d liberada', connection.threadId)
-    })
+      console.log(`💧 Conexão MySQL ${connection.threadId} liberada.`);
+    });
+
+    global.mysqlPool = pool;
+    return pool;
+    } catch (error) {
+    console.error('❌ Erro ao criar pool de conexões MySQL:', error);
+    throw new Error('Falha ao inicializar pool de conexões do banco de dados');
   }
-  return pool
 }
+
+// Inicializa o pool global
+let pool = getPool();
 
 // Function para fechar o pool
 export async function closePool() {
-  if (pool) {
-    await pool.end()
-    pool = null
-    console.log('Pool de conexões fechado')
+  if (global.mysqlPool) {
+    await global.mysqlPool.end();
+    global.mysqlPool = null;
+    console.log('Pool de conexões MySQL fechado');
   }
 }
 
@@ -56,39 +71,34 @@ function isCacheValid(timestamp: number): boolean {
   return Date.now() - timestamp < CACHE_TTL
 }
 
-// Função para executar queries
-export async function executeQuery(query: string, params: any[] = []): Promise<RowDataPacket[] | OkPacket> {
-  // Verificar cache apenas para queries SELECT
-  if (query.trim().toUpperCase().startsWith('SELECT')) {
-    const cacheKey = getCacheKey(query, params)
-    const cached = cache.get(cacheKey)
-    
-    if (cached && isCacheValid(cached.timestamp)) {
+// Função principal para executar queries
+export async function executeQuery(
+  query: string,
+  params: any[] = [],
+  noCache: boolean = false
+) {
+  const cacheKey = `${query}_${JSON.stringify(params)}`
+
+  // Verifica o cache primeiro, a menos que noCache seja true
+  if (!noCache && cache.has(cacheKey)) {
+    const cached = cache.get(cacheKey)!
+    if (Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('Retornando dados do cache para a query:', query)
       return cached.data
+    } else {
+      cache.delete(cacheKey) // Remove cache expirado
     }
   }
 
+  let connection: mysql.PoolConnection | null = null
   try {
-    const pool = getPool()
-    const [rows] = await pool.execute(query, params)
+    connection = await pool.getConnection();
+    const [rows] = await connection.execute(query, params);
 
     // Armazenar no cache apenas queries SELECT
     if (query.trim().toUpperCase().startsWith('SELECT')) {
-      const cacheKey = getCacheKey(query, params)
-      cache.set(cacheKey, {
-        data: rows,
-        timestamp: Date.now()
-      })
-      
-      // Limpar cache antigo (simples garbage collection)
-      if (cache.size > 100) {
-        const now = Date.now()
-        for (const [key, value] of cache.entries()) {
-          if (!isCacheValid(value.timestamp)) {
-            cache.delete(key)
-          }
-        }
-      }
+      console.log('Armazenando resultado no cache para a query:', query)
+      cache.set(cacheKey, { data: rows, timestamp: Date.now() })
     } else {
       // Limpar cache relacionado quando há modificações
       const tableName = extractTableName(query)
@@ -109,8 +119,12 @@ export async function executeQuery(query: string, params: any[] = []): Promise<R
       return rows as OkPacket
     }
   } catch (error) {
-    console.error("Erro ao executar query:", error)
+    console.error("❌ Erro ao executar query:", error)
     throw new Error("Falha ao executar operação no banco de dados")
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 }
 
@@ -134,12 +148,12 @@ function extractTableName(query: string): string | null {
 async function getConnection() {
   try {
     // Configuração específica para conexão única (sem opções de pool)
-    const singleConnectionConfig = {
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      connectTimeout: 30000, // Timeout para estabelecer conexão
+    const singleConnectionConfig: mysql.ConnectionOptions = {
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'dashboard_iptv',
+      charset: 'utf8mb4'
     }
     const connection = await mysql.createConnection(singleConnectionConfig)
     return connection

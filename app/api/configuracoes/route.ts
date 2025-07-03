@@ -81,6 +81,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ 
       message: 'Configurações atualizadas',
       results 
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     })
   } catch (error) {
     console.error('Erro ao atualizar configurações:', error)

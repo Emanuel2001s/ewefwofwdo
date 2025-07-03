@@ -9,9 +9,9 @@ interface AssetRow extends RowDataPacket {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tipo: string } }
+  { params }: { params: Promise<{ tipo: string }> }
 ) {
-  const { tipo } = params
+  const { tipo } = await params
 
   // Validar tipo
   if (!tipo || !['favicon', 'logo'].includes(tipo)) {

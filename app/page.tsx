@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,7 +18,70 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({})
-  const { nomeSistema, logoUrl } = useConfig()
+  const { nomeSistema, logoUrl, refreshConfig } = useConfig()
+  
+  // **ESTADOS LOCAIS COMPATÍVEIS COM SSR**
+  // Sempre começar com valores padrão para evitar problemas de hidratação
+  const [currentLogoUrl, setCurrentLogoUrl] = useState('/placeholder-logo.png')
+  const [currentNomeSistema, setCurrentNomeSistema] = useState('Dashboard')
+  const [mounted, setMounted] = useState(false)
+  
+  // **CARREGAR VALORES DO LOCALSTORAGE APÓS HIDRATAÇÃO**
+  useEffect(() => {
+    setMounted(true)
+    
+    if (typeof window !== 'undefined') {
+      try {
+        const storedLogo = localStorage.getItem('config_logo_url')
+        const storedNome = localStorage.getItem('config_nome_sistema')
+        
+        if (storedLogo) setCurrentLogoUrl(storedLogo)
+        if (storedNome) {
+          setCurrentNomeSistema(storedNome)
+          document.title = storedNome
+        }
+      } catch (error) {
+        console.log('Erro ao carregar configurações do localStorage')
+      }
+    }
+  }, [])
+
+  // **SINCRONIZAR COM CONTEXTO**
+  useEffect(() => {
+    if (logoUrl) {
+      setCurrentLogoUrl(logoUrl)
+    }
+  }, [logoUrl])
+  
+  useEffect(() => {
+    if (nomeSistema) {
+      setCurrentNomeSistema(nomeSistema)
+    }
+  }, [nomeSistema])
+
+  // **FORÇAR REFRESH DA LOGO QUANDO NECESSÁRIO**
+  useEffect(() => {
+    const handleForceRefresh = (event: any) => {
+      console.log('🔄 Force refresh recebido na página de login')
+      
+      // **ATUALIZAR ESTADOS LOCAIS IMEDIATAMENTE**
+      const { nomeSistema: newNome, logoUrl: newLogo } = event.detail
+      if (newNome) {
+        setCurrentNomeSistema(newNome)
+      }
+      if (newLogo) {
+        setCurrentLogoUrl(newLogo)
+      }
+      
+      // Também chamar refresh do contexto
+      refreshConfig()
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('forceConfigRefresh', handleForceRefresh)
+      return () => window.removeEventListener('forceConfigRefresh', handleForceRefresh)
+    }
+  }, [refreshConfig])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,22 +125,28 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:from-slate-950 dark:to-slate-900 p-4">
       <div className="w-full max-w-sm mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className={`text-center mb-8 transition-opacity duration-300 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
           {/* Logo */}
-          {logoUrl && logoUrl !== '/placeholder-logo.png' && (
-            <div className="mb-4 flex justify-center">
+          {mounted && currentLogoUrl && currentLogoUrl !== '/placeholder-logo.png' && (
+            <div className="mb-4 flex justify-center animate-in fade-in duration-500">
               <Image
-                src={logoUrl}
+                src={currentLogoUrl}
                 alt="Logo"
                 width={120}
                 height={120}
                 className="max-w-[120px] max-h-[120px] object-contain"
+                key={currentLogoUrl}
+                unoptimized={true}
+                priority={true}
+                onError={(e) => {
+                  console.log('Erro ao carregar logo:', currentLogoUrl)
+                }}
               />
             </div>
           )}
           
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-cyan-400">
-            {nomeSistema}
+            {mounted ? currentNomeSistema : 'Dashboard'}
           </h1>
         </div>
 

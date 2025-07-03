@@ -29,14 +29,15 @@ interface ConfigProviderProps {
 }
 
 export function ConfigProvider({ children }: ConfigProviderProps) {
-  // Estados iniciais padrões para evitar problemas de hidratação
-  const [nomeSistema, setNomeSistema] = useState('Dashboard IPTV')
+  // **ESTADOS INICIAIS COMPATÍVEIS COM SSR**
+  // Sempre começar com valores padrão para evitar problemas de hidratação
+  const [nomeSistema, setNomeSistema] = useState('Dashboard')
   const [faviconUrl, setFaviconUrl] = useState('/favicon.ico')
   const [logoUrl, setLogoUrl] = useState('/placeholder-logo.png')
   const [isLoaded, setIsLoaded] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Função para carregar valores do localStorage após montagem
+  // **CARREGAR VALORES DO LOCALSTORAGE APÓS HIDRATAÇÃO**
   const loadStoredValues = () => {
     if (typeof window === 'undefined') return
     
@@ -45,28 +46,39 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       const storedFavicon = localStorage.getItem('config_favicon_url')
       const storedLogo = localStorage.getItem('config_logo_url')
       
-      if (storedNome) setNomeSistema(storedNome)
-      if (storedFavicon) setFaviconUrl(storedFavicon)
-      if (storedLogo) setLogoUrl(storedLogo)
+      // Atualizar apenas se valores existirem e forem diferentes
+      if (storedNome && storedNome !== nomeSistema) {
+        setNomeSistema(storedNome)
+        // Atualizar título imediatamente
+        document.title = storedNome
+      }
+      if (storedFavicon && storedFavicon !== faviconUrl) {
+        setFaviconUrl(storedFavicon)
+      }
+      if (storedLogo && storedLogo !== logoUrl) {
+        setLogoUrl(storedLogo)
+      }
     } catch (error) {
       console.log('Erro ao carregar configurações do localStorage')
     }
   }
 
-  const fetchConfig = async () => {
+  const fetchConfig = async (forceRefresh = false) => {
     try {
-      // Verificar se já temos cache recente (menos de 5 minutos)
-      const lastFetch = localStorage.getItem('config_last_fetch')
-      const now = Date.now()
-      if (lastFetch && (now - parseInt(lastFetch)) < 5 * 60 * 1000) {
-        // Cache ainda válido, não fazer nova requisição
-        return
+      // Verificar se já temos cache recente (menos de 5 minutos) - APENAS se não forçar refresh
+      if (!forceRefresh) {
+        const lastFetch = localStorage.getItem('config_last_fetch')
+        const now = Date.now()
+        if (lastFetch && (now - parseInt(lastFetch)) < 5 * 60 * 1000) {
+          // Cache ainda válido, não fazer nova requisição
+          return
+        }
       }
       
       // Carregamento silencioso em background
       const response = await fetch('/api/configuracoes', {
-        next: { revalidate: 60 },
-        cache: 'force-cache'
+        // Se forçar refresh, não usar cache
+        ...(forceRefresh ? { cache: 'no-cache' } : { next: { revalidate: 60 }, cache: 'force-cache' })
       })
       
       if (response.ok) {
@@ -134,7 +146,10 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
   useEffect(() => {
     // Aguardar hidratação e marcar como montado
     setMounted(true)
+    
+    // **CARREGAR VALORES DO LOCALSTORAGE IMEDIATAMENTE APÓS HIDRATAÇÃO**
     loadStoredValues()
+    
     setIsLoaded(true)
     
     // Carregar configurações do servidor em background
@@ -142,7 +157,34 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       fetchConfig()
     }, 1000)
     
-    return () => clearTimeout(timer)
+    // **LISTENER PARA FORCE REFRESH**
+    const handleForceRefresh = (event: any) => {
+      console.log('📡 ConfigProvider recebeu forceConfigRefresh:', event.detail)
+      const { nomeSistema: newNome, faviconUrl: newFavicon, logoUrl: newLogo } = event.detail
+      if (newNome) {
+        console.log('🔄 Atualizando nome do sistema:', newNome)
+        setNomeSistema(newNome)
+      }
+      if (newFavicon) {
+        console.log('🔄 Atualizando favicon:', newFavicon)
+        setFaviconUrl(newFavicon)
+      }
+      if (newLogo) {
+        console.log('🔄 Atualizando logo:', newLogo)
+        setLogoUrl(newLogo)
+      }
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('forceConfigRefresh', handleForceRefresh)
+    }
+    
+    return () => {
+      clearTimeout(timer)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('forceConfigRefresh', handleForceRefresh)
+      }
+    }
   }, [])
 
   // Atualizar favicon apenas (title já é atualizado no fetchConfig)
@@ -162,7 +204,13 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
 
   const refreshConfig = () => {
     setIsLoaded(false)
-    fetchConfig()
+    
+    // **LIMPAR CACHE DO LOCALSTORAGE**
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('config_last_fetch')
+    }
+    
+    fetchConfig(true) // Forçar refresh
   }
 
   return (

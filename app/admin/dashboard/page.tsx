@@ -1,55 +1,44 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, Server, CreditCard, TrendingUp, UserCheck, UserX, Activity, Database, DollarSign } from "lucide-react"
+import { Users, Server, CreditCard, TrendingUp, UserCheck, UserX, Activity, Database, DollarSign, Clock, Package } from "lucide-react"
 import { executeQuery } from "@/lib/db"
 import { RowDataPacket } from "mysql2"
 import { ResponsiveContainer, ResponsivePageHeader, ResponsiveGrid } from "@/components/ui/responsive-container"
+import { updateExpiredClients } from "@/lib/auto-update-clients"
+import { cookies } from "next/headers"
 
 async function getDashboardStats() {
-  // Buscar estatísticas em paralelo
-  const [
-    clientesStats,
-    servidoresStats,
-    planosStats,
-    receitaStats
-  ] = await Promise.all([
+  // Primeiro, atualizar clientes vencidos automaticamente
+  await updateExpiredClients()
+  
+  // Depois buscar as estatísticas atualizadas
+  const [clientesStats, planosStats, servidoresStats] = await Promise.all([
     executeQuery(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN status = 'ativo' THEN 1 ELSE 0 END) as ativos,
         SUM(CASE WHEN status = 'inativo' THEN 1 ELSE 0 END) as inativos,
-        SUM(CASE WHEN data_vencimento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as vencendo
+        SUM(CASE WHEN DATE(data_vencimento) = CURDATE() THEN 1 ELSE 0 END) as vencendo_hoje,
+        SUM(CASE WHEN DATE(data_vencimento) < CURDATE() THEN 1 ELSE 0 END) as vencidos,
+        SUM(CASE WHEN data_vencimento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as vencendo_proximos_dias
       FROM clientes
-    `),
-    executeQuery(`SELECT COUNT(*) as total FROM servidores`),
-    executeQuery(`SELECT COUNT(*) as total, AVG(valor) as media FROM planos`),
-    executeQuery(`
-      SELECT 
-        SUM(p.valor) as total,
-        SUM(CASE WHEN c.status = 'ativo' THEN p.valor ELSE 0 END) as ativa
-      FROM clientes c 
-      JOIN planos p ON c.plano_id = p.id
-    `)
-  ]) as [RowDataPacket[], RowDataPacket[], RowDataPacket[], RowDataPacket[]]
+    `) as Promise<RowDataPacket[]>,
+    
+    executeQuery("SELECT COUNT(*) as total FROM planos") as Promise<RowDataPacket[]>,
+    executeQuery("SELECT COUNT(*) as total FROM servidores") as Promise<RowDataPacket[]>
+  ])
 
   return {
     clientes: {
       total: Number(clientesStats[0]?.total) || 0,
       ativos: Number(clientesStats[0]?.ativos) || 0,
       inativos: Number(clientesStats[0]?.inativos) || 0,
-      vencendo: Number(clientesStats[0]?.vencendo) || 0,
+      vencendo_hoje: Number(clientesStats[0]?.vencendo_hoje) || 0,
+      vencidos: Number(clientesStats[0]?.vencidos) || 0,
+      vencendo_proximos_dias: Number(clientesStats[0]?.vencendo_proximos_dias) || 0,
     },
-    servidores: {
-      total: Number(servidoresStats[0]?.total) || 0,
-    },
-    planos: {
-      total: Number(planosStats[0]?.total) || 0,
-      valorMedio: Number(planosStats[0]?.media) || 0,
-    },
-    receita: {
-      total: Number(receitaStats[0]?.total) || 0,
-      ativa: Number(receitaStats[0]?.ativa) || 0,
-    }
+    planos: Number(planosStats[0]?.total) || 0,
+    servidores: Number(servidoresStats[0]?.total) || 0,
   }
 }
 
@@ -126,6 +115,11 @@ export default async function DashboardPage() {
   // Calcular total de atividades do mês
   const totalActivities = stats.clientes.total + activities.renewed.length + activities.recent.length
 
+  // Verificar usuário logado
+  const cookieStore = await cookies()
+  const userCookie = cookieStore.get('user')
+  const currentUser = userCookie ? JSON.parse(userCookie.value) : null
+
   return (
     <ResponsiveContainer>
       {/* Header da página */}
@@ -133,6 +127,16 @@ export default async function DashboardPage() {
         title="Dashboard"
         description="Visão geral do sistema de IPTV"
       />
+
+      {/* Informação temporária do usuário */}
+      {currentUser && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <strong>Usuário logado:</strong> {currentUser.nome} (ID: {currentUser.id}) - {currentUser.tipo}
+            {currentUser.id === 1 && <span className="text-green-600 font-bold"> ✅ ADMIN SUPREMO - WhatsApp Evolution disponível!</span>}
+          </p>
+        </div>
+      )}
 
       {/* Cards de estatísticas */}
       <ResponsiveGrid cols={{ default: 1, sm: 2, md: 4, lg: 4 }} className="mb-6 sm:mb-8">
@@ -171,18 +175,18 @@ export default async function DashboardPage() {
         </Card>
 
         <Card className="hover:shadow-lg transition-shadow duration-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-emerald-600 text-white rounded-t-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-red-600 text-white rounded-t-lg">
             <CardTitle className="text-sm font-medium">
-              Receita Mensal
+              Vencendo Hoje
             </CardTitle>
-            <DollarSign className="h-5 w-5" />
+            <Clock className="h-5 w-5" />
           </CardHeader>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-              {stats.receita.ativa.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              {stats.clientes.vencendo_hoje}
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              De {stats.clientes.ativos} clientes ativos
+              Vencendo hoje
             </p>
           </CardContent>
         </Card>
@@ -196,7 +200,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-              {stats.servidores.total}
+              {stats.servidores}
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Todos os servidores operacionais

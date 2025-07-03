@@ -7,22 +7,28 @@ export function InstantTitle() {
   const { nomeSistema } = useConfig()
 
   useEffect(() => {
-    // Só executa no cliente após hidratação
+    // **CARREGAR TÍTULO IMEDIATAMENTE**
     if (typeof window !== 'undefined') {
-      // Primeiro, tenta carregar título do localStorage
+      // Primeiro, tentar carregar do localStorage imediatamente
       try {
         const storedTitle = localStorage.getItem('config_nome_sistema')
         if (storedTitle) {
           document.title = storedTitle
+        } else {
+          // Se não tiver no localStorage, usar padrão
+          document.title = 'Dashboard'
         }
       } catch (error) {
-        // Se falhar, não faz nada
+        // Se falhar, usar padrão
+        document.title = 'Dashboard'
       }
-      
-      // Depois, se nomeSistema vier do contexto, usa ele
-      if (nomeSistema) {
-        document.title = nomeSistema
-      }
+    }
+  }, []) // Executar apenas uma vez na montagem
+
+  useEffect(() => {
+    // Atualizar quando nomeSistema mudar
+    if (typeof window !== 'undefined' && nomeSistema) {
+      document.title = nomeSistema
     }
   }, [nomeSistema])
 

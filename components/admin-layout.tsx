@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Server, Package, BarChart3, Settings, LogOut, Menu, Moon, Sun, User, Shield, Sparkles } from "lucide-react"
+import { LayoutDashboard, Users, Server, Package, BarChart3, Settings, LogOut, Menu, Moon, Sun, User, Shield, Sparkles, MessageCircle, Megaphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "next-themes"
 import { logout } from "@/lib/auth"
@@ -27,14 +27,21 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { nomeSistema, mounted } = useConfig()
 
-  const navigation = [
+  // Navegação base para todos os admins
+  const baseNavigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, color: "from-blue-500 to-blue-600" },
     { name: "Clientes", href: "/admin/clientes", icon: Users, color: "from-blue-500 to-blue-600" },
     { name: "Servidores", href: "/admin/servidores", icon: Server, color: "from-blue-500 to-blue-600" },
     { name: "Planos", href: "/admin/planos", icon: Package, color: "from-blue-500 to-blue-600" },
+    { name: "Templates", href: "/admin/templates", icon: MessageCircle, color: "from-green-500 to-green-600" },
     { name: "Relatórios", href: "/admin/relatorios", icon: BarChart3, color: "from-blue-500 to-blue-600" },
+    { name: "WhatsApp API", href: "/admin/whatsapp", icon: MessageCircle, color: "from-green-500 to-green-600" },
+    { name: "Envio em Massa", href: "/admin/envio-massa", icon: Megaphone, color: "from-purple-500 to-purple-600" },
     { name: "Configurações", href: "/admin/configuracoes", icon: Settings, color: "from-blue-500 to-blue-600" },
   ]
+
+  // Usar navegação base sem WhatsApp Evolution no menu lateral
+  const navigation = baseNavigation
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
@@ -101,7 +108,7 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
                 </div>
               </div>
               <div className="ml-4 flex-1">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{user.nome}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{user?.nome || 'Admin'}</p>
                 <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1">
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                   Administrador
@@ -163,11 +170,25 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
 
         {/* Menu móvel */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 flex z-40 lg:hidden">
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
-            <div className="relative flex-1 flex flex-col max-w-sm w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md shadow-2xl">
-              {/* Header do Menu Móvel */}
-              <div className="flex items-center justify-center h-20 flex-shrink-0 px-6 bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg">
+          <div className="fixed inset-0 flex z-40 lg:hidden" role="dialog" aria-modal="true">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" onClick={() => setIsMobileMenuOpen(false)}></div>
+            
+            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md shadow-2xl">
+              <div className="absolute top-0 right-0 -mr-12 pt-2">
+                <button
+                  type="button"
+                  className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="sr-only">Close sidebar</span>
+                  <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Header do Menu Móvel - Alinhado à esquerda */}
+              <div className="flex items-center h-20 flex-shrink-0 px-6 bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
                     <Sparkles className="h-6 w-6 text-white" />
@@ -219,7 +240,7 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
                     </div>
                   </div>
                   <div className="ml-4 flex-1">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{user.nome}</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{user?.nome || 'Admin'}</p>
                     <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1">
                       <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                       Administrador
@@ -227,6 +248,9 @@ export function AdminLayout({ children, user }: AdminLayoutProps) {
                   </div>
                 </div>
               </div>
+            </div>
+            <div className="flex-shrink-0 w-14" aria-hidden="true">
+              {/* Dummy element to force sidebar to shrink to fit close icon */}
             </div>
           </div>
         )}

@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Card, CardContent } from "./card"
 import { Badge } from "./badge"
 import { Button } from "./button"
-import { Edit, Eye, Trash2 } from "lucide-react"
+import { Edit, Eye, Trash2, MessageCircle, DollarSign } from "lucide-react"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./alert-dialog"
 
 interface Cliente {
@@ -20,9 +20,11 @@ interface ClientMobileCardProps {
   cliente: Cliente
   onDelete: (id: number) => Promise<void>
   isDeleting: number | null
+  onWhatsApp?: (cliente: Cliente) => void
+  onPayment?: (cliente: Cliente) => void
 }
 
-export function ClientMobileCard({ cliente, onDelete, isDeleting }: ClientMobileCardProps) {
+export function ClientMobileCard({ cliente, onDelete, isDeleting, onWhatsApp, onPayment }: ClientMobileCardProps) {
   const formatarData = (dataString: string) => {
     const data = new Date(dataString)
     return data.toLocaleDateString("pt-BR")
@@ -94,6 +96,30 @@ export function ClientMobileCard({ cliente, onDelete, isDeleting }: ClientMobile
 
         {/* Ações */}
         <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+          {onPayment && (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => onPayment(cliente)}
+              className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-700"
+              title="Enviar mensagem de vencimento"
+            >
+              <DollarSign className="h-3 w-3" />
+            </Button>
+          )}
+          
+          {onWhatsApp && (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => onWhatsApp(cliente)}
+              className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700"
+              title="Enviar mensagem WhatsApp"
+            >
+              <MessageCircle className="h-3 w-3" />
+            </Button>
+          )}
+          
           <Button asChild size="sm" variant="outline" className="flex-1">
             <Link href={`/admin/clientes/${cliente.id}`}>
               <Eye className="h-3 w-3 mr-1" />

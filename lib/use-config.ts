@@ -11,7 +11,7 @@ interface ConfigData {
 
 export function useConfig(): ConfigData {
   const [config, setConfig] = useState<ConfigData>({
-    nomeSistema: 'Dashboard IPTV', // Valor padrão imediato
+    nomeSistema: 'Dashboard', // Valor padrão imediato
     logoUrl: '/placeholder-logo.png',
     faviconUrl: '/favicon.ico',
     isLoaded: true // Começa carregado com padrões
@@ -54,7 +54,7 @@ export function useConfig(): ConfigData {
           // Fallback
           setConfig(prev => ({ 
             ...prev, 
-            nomeSistema: 'Dashboard IPTV', 
+            nomeSistema: 'Dashboard', 
             isLoaded: true 
           }))
         }
@@ -62,7 +62,7 @@ export function useConfig(): ConfigData {
         console.log('Erro ao carregar config:', error)
         setConfig(prev => ({ 
           ...prev, 
-          nomeSistema: 'Dashboard IPTV', 
+          nomeSistema: 'Dashboard', 
           isLoaded: true 
         }))
       }

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Edit, Eye, Search, Trash2 } from "lucide-react"
+import { Edit, Eye, Search, Trash2, MessageCircle, Send, X, FileText, DollarSign } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import {
   AlertDialog,
@@ -20,6 +20,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -43,13 +54,30 @@ interface Cliente {
   status: "ativo" | "inativo"
 }
 
+interface MessageTemplate {
+  id: number
+  nome: string
+  tipo: string
+  message_type: 'texto' | 'imagem'
+  mensagem: string
+  imagem_url?: string
+  imagem_caption?: string
+}
+
+interface WhatsAppInstance {
+  id: number
+  nome: string
+  status: 'conectada' | 'desconectada' | 'criando' | 'erro'
+}
+
 interface ClientesTableProps {
   clientes?: Cliente[]
   servidores: { id: number; nome: string }[]
   totalClientes?: number
+  isAdminSupremo?: boolean
 }
 
-export function ClientesTable({ clientes: initialClientes, servidores, totalClientes: initialTotalClientes }: ClientesTableProps) {
+export function ClientesTable({ clientes: initialClientes, servidores, totalClientes: initialTotalClientes, isAdminSupremo = false }: ClientesTableProps) {
   const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>(initialClientes || [])
   const [loading, setLoading] = useState(!initialClientes)
@@ -64,6 +92,28 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(initialTotalClientes || 0)
 
+  // Estados do modal WhatsApp
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false)
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
+  const [templates, setTemplates] = useState<MessageTemplate[]>([])
+  const [instances, setInstances] = useState<WhatsAppInstance[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null)
+  const [selectedInstance, setSelectedInstance] = useState<number | null>(null)
+  const [customMessage, setCustomMessage] = useState("")
+  const [messagePreview, setMessagePreview] = useState("")
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+
+  // Novos estados para o modal de pagamento
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [vencimentoTemplates, setVencimentoTemplates] = useState<MessageTemplate[]>([])
+  const [selectedVencimentoTemplate, setSelectedVencimentoTemplate] = useState<number | null>(null)
+  const [selectedPaymentInstance, setSelectedPaymentInstance] = useState<number | null>(null)
+  const [customPaymentMessage, setCustomPaymentMessage] = useState("")
+  const [paymentMessagePreview, setPaymentMessagePreview] = useState("")
+  const [sendingPaymentMessage, setSendingPaymentMessage] = useState(false)
+  const [loadingVencimentoTemplates, setLoadingVencimentoTemplates] = useState(false)
+
   useEffect(() => {
     if (!initialClientes) {
       carregarClientes()
@@ -76,6 +126,34 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
   useEffect(() => {
     carregarClientes()
   }, [currentPage, filtro, servidorFiltro, statusFiltro, vencimentoFiltro, itemsPerPage])
+
+  // Carregar templates e instâncias quando abrir o modal
+  useEffect(() => {
+    if (whatsappModalOpen) {
+      loadWhatsAppData()
+    }
+  }, [whatsappModalOpen])
+
+  // Gerar preview do template quando selecionado
+  useEffect(() => {
+    if (selectedTemplate && selectedCliente) {
+      generateTemplatePreview()
+    }
+  }, [selectedTemplate, selectedCliente])
+
+  // Carregar templates de vencimento quando abrir o modal de pagamento
+  useEffect(() => {
+    if (paymentModalOpen) {
+      loadVencimentoTemplates()
+    }
+  }, [paymentModalOpen])
+
+  // Gerar preview do template de vencimento quando selecionado
+  useEffect(() => {
+    if (selectedVencimentoTemplate && selectedCliente) {
+      generateVencimentoTemplatePreview()
+    }
+  }, [selectedVencimentoTemplate, selectedCliente])
 
   async function carregarClientes() {
     setLoading(true)
@@ -184,6 +262,260 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
       })
     } finally {
       setIsDeleting(null)
+    }
+  }
+
+  // Carregar dados do WhatsApp (templates e instâncias)
+  async function loadWhatsAppData() {
+    setLoadingTemplates(true)
+    try {
+      // Carregar templates
+      const templatesResponse = await fetch('/api/evolution/templates')
+      if (templatesResponse.ok) {
+        const templatesData = await templatesResponse.json()
+        setTemplates(templatesData.data || [])
+      }
+
+      // Carregar instâncias
+      const instancesResponse = await fetch('/api/evolution/instances')
+      if (instancesResponse.ok) {
+        const instancesData = await instancesResponse.json()
+        console.log('Dados das instâncias recebidos:', instancesData)
+        setInstances(instancesData.instancias || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados WhatsApp:', error)
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar templates e instâncias WhatsApp",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
+
+  // Gerar preview do template
+  async function generateTemplatePreview() {
+    if (!selectedTemplate || !selectedCliente) return
+
+    try {
+      const response = await fetch('/api/evolution/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'preview',
+          templateId: selectedTemplate,
+          clienteId: selectedCliente.id
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setMessagePreview(data.preview || '')
+      }
+    } catch (error) {
+      console.error('Erro ao gerar preview:', error)
+    }
+  }
+
+  // Abrir modal WhatsApp
+  const openWhatsAppModal = (cliente: Cliente) => {
+    setSelectedCliente(cliente)
+    setWhatsappModalOpen(true)
+    setSelectedTemplate(null)
+    setSelectedInstance(null)
+    setCustomMessage("")
+    setMessagePreview("")
+  }
+
+  // Fechar modal WhatsApp
+  const closeWhatsAppModal = () => {
+    setWhatsappModalOpen(false)
+    setSelectedCliente(null)
+    setSelectedTemplate(null)
+    setSelectedInstance(null)
+    setCustomMessage("")
+    setMessagePreview("")
+  }
+
+  // Enviar mensagem WhatsApp
+  async function sendWhatsAppMessage() {
+    if (!selectedCliente || !selectedInstance) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma instância para enviar a mensagem",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const message = selectedTemplate ? messagePreview : customMessage
+    if (!message.trim()) {
+      toast({
+        title: "Erro",
+        description: "Digite uma mensagem para enviar",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSendingMessage(true)
+    try {
+      const response = await fetch('/api/evolution/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instanceId: selectedInstance,
+          clienteId: selectedCliente.id,
+          templateId: selectedTemplate,
+          customMessage: selectedTemplate ? null : customMessage
+        })
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Mensagem enviada",
+          description: `Mensagem enviada para ${selectedCliente.nome} via WhatsApp`,
+        })
+        closeWhatsAppModal()
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro ao enviar mensagem')
+      }
+    } catch (error: any) {
+      console.error('Erro ao enviar mensagem:', error)
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao enviar mensagem WhatsApp",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
+  async function loadVencimentoTemplates() {
+    setLoadingVencimentoTemplates(true)
+    try {
+      const [templatesResponse, instancesResponse] = await Promise.all([
+        fetch('/api/evolution/templates?tipo=vencimento'),
+        fetch('/api/evolution/instances')
+      ])
+
+      if (templatesResponse.ok) {
+        const templatesData = await templatesResponse.json()
+        setVencimentoTemplates(templatesData.data || [])
+      }
+
+      if (instancesResponse.ok) {
+        const instancesData = await instancesResponse.json()
+        console.log('Dados das instâncias de vencimento recebidos:', instancesData)
+        setInstances(instancesData.instancias || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados de vencimento:', error)
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar templates de vencimento",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingVencimentoTemplates(false)
+    }
+  }
+
+  async function generateVencimentoTemplatePreview() {
+    if (!selectedVencimentoTemplate || !selectedCliente) return
+
+    try {
+      const template = vencimentoTemplates.find(t => t.id === selectedVencimentoTemplate)
+      if (!template) return
+
+      const response = await fetch('/api/evolution/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'preview',
+          templateId: selectedVencimentoTemplate,
+          clienteId: selectedCliente.id
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setPaymentMessagePreview(data.preview)
+      }
+    } catch (error) {
+      console.error('Erro ao gerar preview:', error)
+    }
+  }
+
+  const openPaymentModal = (cliente: Cliente) => {
+    setSelectedCliente(cliente)
+    setPaymentModalOpen(true)
+    setSelectedVencimentoTemplate(null)
+    setSelectedPaymentInstance(null)
+    setCustomPaymentMessage("")
+    setPaymentMessagePreview("")
+  }
+
+  const closePaymentModal = () => {
+    setPaymentModalOpen(false)
+    setSelectedCliente(null)
+    setSelectedVencimentoTemplate(null)
+    setSelectedPaymentInstance(null)
+    setCustomPaymentMessage("")
+    setPaymentMessagePreview("")
+  }
+
+  async function sendPaymentMessage() {
+    if (!selectedCliente || !selectedPaymentInstance || (!selectedVencimentoTemplate && !customPaymentMessage.trim())) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setSendingPaymentMessage(true)
+    try {
+      const messageData = {
+        clienteId: selectedCliente.id,
+        instanceId: selectedPaymentInstance,
+        ...(selectedVencimentoTemplate 
+          ? { templateId: selectedVencimentoTemplate }
+          : { customMessage: customPaymentMessage }
+        )
+      }
+
+      const response = await fetch('/api/evolution/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messageData)
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "Mensagem enviada!",
+          description: `Mensagem de vencimento enviada para ${selectedCliente.nome}`,
+        })
+        closePaymentModal()
+      } else {
+        throw new Error(result.error || 'Erro ao enviar mensagem')
+      }
+    } catch (error: any) {
+      console.error('Erro ao enviar mensagem:', error)
+      toast({
+        title: "Erro ao enviar",
+        description: error.message || "Erro inesperado ao enviar mensagem",
+        variant: "destructive"
+      })
+    } finally {
+      setSendingPaymentMessage(false)
     }
   }
 
@@ -357,6 +689,28 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right flex items-center justify-end space-x-2">
+                    {isAdminSupremo && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openPaymentModal(cliente)}
+                          className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
+                          title="Enviar mensagem de vencimento"
+                        >
+                          <DollarSign className="h-4 w-4" />
+                        </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => openWhatsAppModal(cliente)}
+                        className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                          title="Enviar mensagem WhatsApp"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                      </>
+                    )}
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/admin/clientes/${cliente.id}/editar`}>
                         <Edit className="h-4 w-4" />
@@ -408,6 +762,8 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
               cliente={cliente} 
               onDelete={handleDelete}
               isDeleting={isDeleting}
+              onWhatsApp={isAdminSupremo ? openWhatsAppModal : undefined}
+              onPayment={isAdminSupremo ? openPaymentModal : undefined}
             />
           ))
         )}
@@ -438,6 +794,294 @@ export function ClientesTable({ clientes: initialClientes, servidores, totalClie
           />
         </PaginationContent>
       </Pagination>
+
+      {/* Modal de Pagamento/Vencimento */}
+      <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-yellow-100">
+                <DollarSign className="h-5 w-5 text-yellow-600" />
+              </div>
+              Enviar Mensagem de Vencimento
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCliente && (
+                <>Enviar mensagem de vencimento para <strong>{selectedCliente.nome}</strong> ({selectedCliente.whatsapp})</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 py-4">
+            {/* Instâncias */}
+            <div className="space-y-2">
+              <Label htmlFor="payment-instance">Instância WhatsApp *</Label>
+              <Select 
+                value={selectedPaymentInstance?.toString() || ""} 
+                onValueChange={(value) => setSelectedPaymentInstance(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma instância conectada" />
+                </SelectTrigger>
+                <SelectContent>
+                  {instances.filter(i => i.status === 'conectada').map((instance) => (
+                    <SelectItem key={instance.id} value={instance.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        {instance.nome}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {instances.filter(i => i.status === 'conectada').length === 0 && (
+                <p className="text-sm text-orange-600">⚠️ Nenhuma instância conectada disponível</p>
+              )}
+            </div>
+
+            {/* Tipo de Mensagem */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Templates de Vencimento */}
+              <Card className="shadow-md">
+                <CardHeader className="bg-yellow-50 pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Templates de Vencimento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3">
+                  {loadingVencimentoTemplates ? (
+                    <p className="text-sm text-gray-500">Carregando templates...</p>
+                  ) : (
+                    <Select 
+                      value={selectedVencimentoTemplate?.toString() || ""} 
+                      onValueChange={(value) => {
+                        setSelectedVencimentoTemplate(value ? Number(value) : null)
+                        setCustomPaymentMessage("")
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Escolher template de vencimento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vencimentoTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id.toString()}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{template.nome}</span>
+                              <span className="text-xs text-gray-500">
+                                {template.message_type === 'texto' ? 'Texto' : 'Texto + Imagem'}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  
+                  {selectedVencimentoTemplate && paymentMessagePreview && (
+                    <div className="mt-3">
+                      <Label className="text-xs text-gray-600">Preview:</Label>
+                      <div className="p-3 bg-gray-50 rounded border text-sm whitespace-pre-wrap">
+                        {paymentMessagePreview}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Mensagem Personalizada */}
+              <Card className="shadow-md">
+                <CardHeader className="bg-blue-50 pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    Mensagem Personalizada
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <Textarea
+                    placeholder="Digite sua mensagem de vencimento personalizada aqui..."
+                    value={customPaymentMessage}
+                    onChange={(e) => {
+                      setCustomPaymentMessage(e.target.value)
+                      setSelectedVencimentoTemplate(null)
+                    }}
+                    rows={6}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 Use uma mensagem personalizada ou selecione um template de vencimento acima
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closePaymentModal}>
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button 
+              onClick={sendPaymentMessage}
+              disabled={sendingPaymentMessage || !selectedPaymentInstance || (!selectedVencimentoTemplate && !customPaymentMessage.trim())}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              {sendingPaymentMessage ? (
+                "Enviando..."
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Enviar Mensagem
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal WhatsApp */}
+      <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-green-100">
+                <MessageCircle className="h-5 w-5 text-green-600" />
+              </div>
+              Enviar Mensagem WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCliente && (
+                <>Enviar mensagem para <strong>{selectedCliente.nome}</strong> ({selectedCliente.whatsapp})</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 py-4">
+            {/* Instâncias */}
+            <div className="space-y-2">
+              <Label htmlFor="instance">Instância WhatsApp *</Label>
+              <Select 
+                value={selectedInstance?.toString() || ""} 
+                onValueChange={(value) => setSelectedInstance(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma instância conectada" />
+                </SelectTrigger>
+                <SelectContent>
+                  {instances.filter(i => i.status === 'conectada').map((instance) => (
+                    <SelectItem key={instance.id} value={instance.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        {instance.nome}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {instances.filter(i => i.status === 'conectada').length === 0 && (
+                <p className="text-sm text-orange-600">⚠️ Nenhuma instância conectada disponível</p>
+              )}
+            </div>
+
+            {/* Tipo de Mensagem */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Templates */}
+              <Card className="shadow-md">
+                <CardHeader className="bg-blue-50 pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Templates Prontos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3">
+                  {loadingTemplates ? (
+                    <p className="text-sm text-gray-500">Carregando templates...</p>
+                  ) : (
+                    <Select 
+                      value={selectedTemplate?.toString() || ""} 
+                      onValueChange={(value) => {
+                        setSelectedTemplate(value ? Number(value) : null)
+                        setCustomMessage("")
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Escolher template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id.toString()}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{template.nome}</span>
+                              <span className="text-xs text-gray-500">
+                                {template.tipo} • {template.message_type}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  
+                  {selectedTemplate && messagePreview && (
+                    <div className="mt-3">
+                      <Label className="text-xs text-gray-600">Preview:</Label>
+                      <div className="p-3 bg-gray-50 rounded border text-sm whitespace-pre-wrap">
+                        {messagePreview}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Mensagem Personalizada */}
+              <Card className="shadow-md">
+                <CardHeader className="bg-green-50 pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    Mensagem Personalizada
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <Textarea
+                    placeholder="Digite sua mensagem personalizada aqui..."
+                    value={customMessage}
+                    onChange={(e) => {
+                      setCustomMessage(e.target.value)
+                      setSelectedTemplate(null)
+                    }}
+                    rows={6}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 Use uma mensagem personalizada ou selecione um template acima
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeWhatsAppModal}>
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button 
+              onClick={sendWhatsAppMessage}
+              disabled={sendingMessage || !selectedInstance || (!selectedTemplate && !customMessage.trim())}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {sendingMessage ? (
+                "Enviando..."
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Enviar Mensagem
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
