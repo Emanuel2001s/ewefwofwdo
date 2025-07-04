@@ -24,7 +24,7 @@ export async function GET(
       SELECT 
         c.*,
         mt.nome as template_nome,
-        mt.conteudo as template_conteudo,
+        mt.mensagem as template_conteudo,
         ei.nome as instancia_nome,
         ei.status as instancia_status
       FROM campanhas_envio_massa c
