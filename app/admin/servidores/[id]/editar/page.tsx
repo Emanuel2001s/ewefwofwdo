@@ -9,8 +9,9 @@ async function getServidor(id: number): Promise<{ id: number; nome: string } | n
   return result.length > 0 ? (result[0] as { id: number; nome: string }) : null
 }
 
-export default async function EditarServidorPage({ params }: { params: { id: string } }) {
-  const id = Number(params.id)
+export default async function EditarServidorPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: paramId } = await params
+  const id = Number(paramId)
   if (isNaN(id)) {
     notFound()
   }

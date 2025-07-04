@@ -24,20 +24,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-
-      <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider 
-          attribute="class" 
-          defaultTheme="light" 
-          enableSystem 
-        >
-          <ConfigProvider>
-            <InstantTitle />
-            <HydrationSafe />
-          {children}
-            <Toaster />
-          </ConfigProvider>
-        </ThemeProvider>
+      <body suppressHydrationWarning>
+        <div className={inter.className}>
+          <ThemeProvider 
+            attribute="class" 
+            defaultTheme="light" 
+            enableSystem
+          >
+            <ConfigProvider>
+              <HydrationSafe>
+                <InstantTitle />
+                {children}
+                <Toaster />
+              </HydrationSafe>
+            </ConfigProvider>
+          </ThemeProvider>
+        </div>
       </body>
     </html>
   )

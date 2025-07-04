@@ -4,11 +4,12 @@ import { getPlano } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface EditarPlanoPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function EditarPlanoPage({ params }: EditarPlanoPageProps) {
-  const id = Number(params.id);
+  const { id: paramId } = await params;
+  const id = Number(paramId);
 
   if (isNaN(id)) {
     notFound();

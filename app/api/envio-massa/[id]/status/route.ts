@@ -4,7 +4,7 @@ import { executeQuery } from "@/lib/db"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth("admin")
@@ -12,7 +12,8 @@ export async function GET(
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const campanhaId = parseInt(params.id)
+    const { id } = await params
+    const campanhaId = parseInt(id)
     
     if (!campanhaId || isNaN(campanhaId)) {
       return NextResponse.json({ 
@@ -109,7 +110,7 @@ export async function GET(
         emd.data_envio,
         emd.erro_detalhes,
         c.nome as cliente_nome,
-        c.telefone as cliente_telefone
+        c.whatsapp as cliente_telefone
       FROM envios_massa_detalhes emd
       LEFT JOIN clientes c ON emd.cliente_id = c.id
       WHERE emd.campanha_id = ?
@@ -141,7 +142,7 @@ export async function GET(
 // POST - Pausar/Retomar campanha
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth("admin")
@@ -149,7 +150,8 @@ export async function POST(
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const campanhaId = parseInt(params.id)
+    const { id } = await params
+    const campanhaId = parseInt(id)
     const { acao } = await request.json()
     
     if (!campanhaId || isNaN(campanhaId)) {

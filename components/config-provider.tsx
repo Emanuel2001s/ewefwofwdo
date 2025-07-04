@@ -12,11 +12,11 @@ interface ConfigContextType {
 }
 
 const ConfigContext = createContext<ConfigContextType>({
-  nomeSistema: '',
+  nomeSistema: 'Dashboard',
   faviconUrl: '/favicon.ico',
   logoUrl: '/placeholder-logo.png',
   refreshConfig: () => {},
-  isLoaded: true,
+  isLoaded: false,
   mounted: false
 })
 
@@ -29,15 +29,14 @@ interface ConfigProviderProps {
 }
 
 export function ConfigProvider({ children }: ConfigProviderProps) {
-  // **ESTADOS INICIAIS COMPATÍVEIS COM SSR**
-  // Sempre começar com valores padrão para evitar problemas de hidratação
-  const [nomeSistema, setNomeSistema] = useState('Dashboard')
-  const [faviconUrl, setFaviconUrl] = useState('/favicon.ico')
-  const [logoUrl, setLogoUrl] = useState('/placeholder-logo.png')
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [state, setState] = useState({
+    nomeSistema: 'Dashboard',
+    faviconUrl: '/favicon.ico',
+    logoUrl: '/placeholder-logo.png',
+    isLoaded: false,
+    mounted: false
+  })
 
-  // **CARREGAR VALORES DO LOCALSTORAGE APÓS HIDRATAÇÃO**
   const loadStoredValues = () => {
     if (typeof window === 'undefined') return
     
@@ -46,17 +45,15 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       const storedFavicon = localStorage.getItem('config_favicon_url')
       const storedLogo = localStorage.getItem('config_logo_url')
       
-      // Atualizar apenas se valores existirem e forem diferentes
-      if (storedNome && storedNome !== nomeSistema) {
-        setNomeSistema(storedNome)
-        // Atualizar título imediatamente
+      setState(prev => ({
+        ...prev,
+        nomeSistema: storedNome || prev.nomeSistema,
+        faviconUrl: storedFavicon || prev.faviconUrl,
+        logoUrl: storedLogo || prev.logoUrl
+      }))
+
+      if (storedNome) {
         document.title = storedNome
-      }
-      if (storedFavicon && storedFavicon !== faviconUrl) {
-        setFaviconUrl(storedFavicon)
-      }
-      if (storedLogo && storedLogo !== logoUrl) {
-        setLogoUrl(storedLogo)
       }
     } catch (error) {
       console.log('Erro ao carregar configurações do localStorage')
@@ -65,50 +62,44 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
 
   const fetchConfig = async (forceRefresh = false) => {
     try {
-      // Verificar se já temos cache recente (menos de 5 minutos) - APENAS se não forçar refresh
       if (!forceRefresh) {
         const lastFetch = localStorage.getItem('config_last_fetch')
         const now = Date.now()
         if (lastFetch && (now - parseInt(lastFetch)) < 5 * 60 * 1000) {
-          // Cache ainda válido, não fazer nova requisição
           return
         }
       }
       
-      // Carregamento silencioso em background
       const response = await fetch('/api/configuracoes', {
-        // Se forçar refresh, não usar cache
-        ...(forceRefresh ? { cache: 'no-cache' } : { next: { revalidate: 60 }, cache: 'force-cache' })
+        ...(forceRefresh ? { cache: 'no-cache' } : { next: { revalidate: 60 } })
       })
       
       if (response.ok) {
         const data = await response.json()
         
-        // Aplicar configurações silenciosamente e salvar no localStorage
+        const newState = { ...state }
         let hasChanges = false
+
         data.forEach((config: any) => {
           switch (config.chave) {
             case 'nome_sistema':
-              if (config.valor && config.valor !== nomeSistema) {
-                setNomeSistema(config.valor)
+              if (config.valor && config.valor !== state.nomeSistema) {
+                newState.nomeSistema = config.valor
                 localStorage.setItem('config_nome_sistema', config.valor)
-                // Atualizar title silenciosamente
-                if (typeof window !== 'undefined') {
-                  document.title = config.valor
-                }
+                document.title = config.valor
                 hasChanges = true
               }
               break
             case 'favicon_url':
-              if (config.valor && config.valor !== faviconUrl) {
-                setFaviconUrl(config.valor)
+              if (config.valor && config.valor !== state.faviconUrl) {
+                newState.faviconUrl = config.valor
                 localStorage.setItem('config_favicon_url', config.valor)
                 hasChanges = true
               }
               break
             case 'logo_url':
-              if (config.valor && config.valor !== logoUrl) {
-                setLogoUrl(config.valor)
+              if (config.valor && config.valor !== state.logoUrl) {
+                newState.logoUrl = config.valor
                 localStorage.setItem('config_logo_url', config.valor)
                 hasChanges = true
               }
@@ -116,82 +107,49 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
           }
         })
         
-        // Marcar timestamp da última busca
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('config_last_fetch', Date.now().toString())
-          
-          // Salvar valores no localStorage se não existirem
-          if (!hasChanges) {
-            if (!localStorage.getItem('config_nome_sistema') && nomeSistema) {
-              localStorage.setItem('config_nome_sistema', nomeSistema)
-            }
-            if (!localStorage.getItem('config_favicon_url')) {
-              localStorage.setItem('config_favicon_url', faviconUrl)
-            }
-            if (!localStorage.getItem('config_logo_url')) {
-              localStorage.setItem('config_logo_url', logoUrl)
-            }
-          }
+        if (hasChanges) {
+          setState(newState)
         }
+        
+        localStorage.setItem('config_last_fetch', Date.now().toString())
       }
-      // Se API falhar, simplesmente não faz nada - mantém o que já estava carregado
     } catch (error) {
       console.log('Erro ao carregar configurações')
-      // Em caso de erro, mantém o que já estava carregado
     } finally {
-      setIsLoaded(true)
+      setState(prev => ({ ...prev, isLoaded: true }))
     }
   }
 
   useEffect(() => {
-    // Aguardar hidratação e marcar como montado
-    setMounted(true)
-    
-    // **CARREGAR VALORES DO LOCALSTORAGE IMEDIATAMENTE APÓS HIDRATAÇÃO**
+    setState(prev => ({ ...prev, mounted: true }))
     loadStoredValues()
     
-    setIsLoaded(true)
-    
-    // Carregar configurações do servidor em background
     const timer = setTimeout(() => {
       fetchConfig()
     }, 1000)
     
-    // **LISTENER PARA FORCE REFRESH**
     const handleForceRefresh = (event: any) => {
-      console.log('📡 ConfigProvider recebeu forceConfigRefresh:', event.detail)
       const { nomeSistema: newNome, faviconUrl: newFavicon, logoUrl: newLogo } = event.detail
-      if (newNome) {
-        console.log('🔄 Atualizando nome do sistema:', newNome)
-        setNomeSistema(newNome)
-      }
-      if (newFavicon) {
-        console.log('🔄 Atualizando favicon:', newFavicon)
-        setFaviconUrl(newFavicon)
-      }
-      if (newLogo) {
-        console.log('🔄 Atualizando logo:', newLogo)
-        setLogoUrl(newLogo)
-      }
+      
+      setState(prev => ({
+        ...prev,
+        ...(newNome && { nomeSistema: newNome }),
+        ...(newFavicon && { faviconUrl: newFavicon }),
+        ...(newLogo && { logoUrl: newLogo })
+      }))
     }
     
-    if (typeof window !== 'undefined') {
-      window.addEventListener('forceConfigRefresh', handleForceRefresh)
-    }
+    window.addEventListener('forceConfigRefresh', handleForceRefresh)
     
     return () => {
       clearTimeout(timer)
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('forceConfigRefresh', handleForceRefresh)
-      }
+      window.removeEventListener('forceConfigRefresh', handleForceRefresh)
     }
   }, [])
 
-  // Atualizar favicon apenas (title já é atualizado no fetchConfig)
   useEffect(() => {
     if (typeof window === 'undefined') return
     
-    // Atualizar favicon
     let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement
     if (!link) {
       link = document.createElement('link')
@@ -199,29 +157,20 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       link.rel = 'shortcut icon'
       document.getElementsByTagName('head')[0].appendChild(link)
     }
-    link.href = faviconUrl
-  }, [faviconUrl])
+    link.href = state.faviconUrl
+  }, [state.faviconUrl])
 
   const refreshConfig = () => {
-    setIsLoaded(false)
-    
-    // **LIMPAR CACHE DO LOCALSTORAGE**
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('config_last_fetch')
-    }
-    
-    fetchConfig(true) // Forçar refresh
+    fetchConfig(true)
+  }
+
+  const value = {
+    ...state,
+    refreshConfig
   }
 
   return (
-    <ConfigContext.Provider value={{
-      nomeSistema,
-      faviconUrl,
-      logoUrl,
-      refreshConfig,
-      isLoaded,
-      mounted
-    }}>
+    <ConfigContext.Provider value={value}>
       {children}
     </ConfigContext.Provider>
   )

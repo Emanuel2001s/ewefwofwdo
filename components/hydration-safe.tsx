@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
-export function HydrationSafe() {
+interface HydrationSafeProps {
+  children: ReactNode
+}
+
+export function HydrationSafe({ children }: HydrationSafeProps) {
   const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
@@ -82,6 +86,10 @@ export function HydrationSafe() {
     }
   }, [])
 
-  // Não renderiza nada, apenas garante que a hidratação foi concluída
-  return null
+  // Renderiza os children apenas após a hidratação
+  if (!isHydrated) {
+    return null
+  }
+
+  return <>{children}</>
 } 

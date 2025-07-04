@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             emd.id,
             emd.cliente_id,
             c.nome as cliente_nome,
-            c.telefone as cliente_telefone,
+            c.whatsapp as cliente_telefone,
             c.data_vencimento,
             p.nome as plano_nome
           FROM envios_massa_detalhes emd

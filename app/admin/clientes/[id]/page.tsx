@@ -22,8 +22,9 @@ async function getCliente(id: string) {
   return cliente.length > 0 ? cliente[0] : null
 }
 
-export default async function ClienteDetalhesPage({ params }: { params: { id: string } }) {
-  const cliente = await getCliente(params.id)
+export default async function ClienteDetalhesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const cliente = await getCliente(id)
 
   if (!cliente) {
     notFound()
@@ -127,7 +128,7 @@ export default async function ClienteDetalhesPage({ params }: { params: { id: st
           <CardContent>
             <div className="flex flex-wrap gap-4">
               {dispositivos.length > 0 ? (
-                dispositivos.map((dispositivo) => (
+                dispositivos.map((dispositivo: string) => (
                   <div key={dispositivo} className="flex items-center gap-2 rounded-lg border p-3">
                     {getDispositivoIcon(dispositivo)}
                     <span>{dispositivo}</span>

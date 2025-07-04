@@ -191,13 +191,33 @@ export default function EnvioMassaPage() {
         carregarDados()
       } else {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao excluir campanha')
+        
+        // Tratar casos específicos
+        if (response.status === 400 && errorData.error?.includes('em andamento')) {
+          toast({
+            title: "Campanha não pode ser excluída",
+            description: "Não é possível excluir uma campanha que está sendo enviada. Pause-a primeiro.",
+            variant: "destructive"
+          })
+        } else if (response.status === 404) {
+          toast({
+            title: "Campanha não encontrada",
+            description: "A campanha não foi encontrada ou já foi excluída.",
+            variant: "destructive"
+          })
+        } else {
+          toast({
+            title: "Erro ao Excluir Campanha",
+            description: errorData.error || "Erro interno do servidor",
+            variant: "destructive"
+          })
+        }
       }
     } catch (error: any) {
       console.error('Erro ao excluir campanha:', error)
       toast({
-        title: "Erro ao Excluir Campanha",
-        description: error.message || "Erro interno do servidor",
+        title: "Erro de Conexão",
+        description: "Não foi possível conectar com o servidor. Tente novamente.",
         variant: "destructive"
       })
     }
