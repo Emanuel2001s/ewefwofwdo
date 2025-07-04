@@ -190,13 +190,14 @@ export default function EnvioMassaPage() {
         })
         carregarDados()
       } else {
-        throw new Error('Erro ao excluir campanha')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro ao excluir campanha')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao excluir campanha:', error)
       toast({
-        title: "Erro",
-        description: "Erro ao excluir campanha",
+        title: "Erro ao Excluir Campanha",
+        description: error.message || "Erro interno do servidor",
         variant: "destructive"
       })
     }

@@ -20,7 +20,7 @@ export async function GET(
     }
 
     // Buscar detalhes da campanha
-    const [campanha] = await executeQuery(`
+    const campanhaResult = await executeQuery(`
       SELECT 
         c.*,
         mt.nome as template_nome,
@@ -31,11 +31,13 @@ export async function GET(
       LEFT JOIN message_templates mt ON c.template_id = mt.id
       LEFT JOIN evolution_instancias ei ON c.instancia_id = ei.id
       WHERE c.id = ?
-    `, [campanhaId])
+    `, [campanhaId]) as any[]
 
-    if (!campanha) {
+    if (!campanhaResult || campanhaResult.length === 0) {
       return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 })
     }
+
+    const campanha = campanhaResult[0]
 
     // Buscar detalhes dos envios
     const envios = await executeQuery(`
@@ -77,14 +79,16 @@ export async function DELETE(
     }
 
     // Verificar se a campanha existe e não está em andamento
-    const [campanha] = await executeQuery(
+    const campanhaResult = await executeQuery(
       "SELECT status FROM campanhas_envio_massa WHERE id = ?",
       [campanhaId]
-    )
+    ) as any[]
 
-    if (!campanha) {
+    if (!campanhaResult || campanhaResult.length === 0) {
       return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 })
     }
+
+    const campanha = campanhaResult[0]
 
     if (campanha.status === "enviando") {
       return NextResponse.json(
