@@ -20,7 +20,8 @@ import {
   Send,
   Eye,
   Clock,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
@@ -61,18 +62,58 @@ type Campanha = {
   descricao?: string
 }
 
-const ETAPAS = [
-  { id: 1, nome: "Informações", icone: MessageCircle, descricao: "Nome e descrição da campanha" },
-  { id: 2, nome: "Template", icone: MessageCircle, descricao: "Escolha da mensagem" },
-  { id: 3, nome: "Clientes", icone: Users, descricao: "Seleção de destinatários" },
-  { id: 4, nome: "Configurações", icone: Settings, descricao: "Instância e intervalos" },
-  { id: 5, nome: "Revisão", icone: Eye, descricao: "Confirmar e enviar" }
-]
+type EtapaCampanha = 'informacoes' | 'template' | 'clientes' | 'configuracoes' | 'revisao'
+
+const ETAPAS: EtapaCampanha[] = ['informacoes', 'template', 'clientes', 'configuracoes', 'revisao']
+
+const ETAPAS_INFO = {
+  'informacoes': {
+    nome: 'Informações',
+    descricao: 'Nome e descrição da campanha',
+    icone: MessageCircle
+  },
+  'template': {
+    nome: 'Template',
+    descricao: 'Escolha da mensagem',
+    icone: MessageCircle
+  },
+  'clientes': {
+    nome: 'Clientes',
+    descricao: 'Seleção de destinatários',
+    icone: Users
+  },
+  'configuracoes': {
+    nome: 'Configurações',
+    descricao: 'Instância e intervalos',
+    icone: Settings
+  },
+  'revisao': {
+    nome: 'Revisão',
+    descricao: 'Confirmar e enviar',
+    icone: Eye
+  }
+} as const
+
+function getTempoEstimado(clientes: number, intervalo: number): string {
+  const totalSegundos = clientes * intervalo
+  const minutos = Math.floor(totalSegundos / 60)
+  const horas = Math.floor(minutos / 60)
+  
+  if (horas > 0) {
+    const minutosRestantes = minutos % 60
+    return `Tempo estimado: ${horas}h${minutosRestantes > 0 ? ` ${minutosRestantes}min` : ''}`
+  } else if (minutos > 0) {
+    const segundosRestantes = totalSegundos % 60
+    return `Tempo estimado: ${minutos}min${segundosRestantes > 0 ? ` ${segundosRestantes}s` : ''}`
+  } else {
+    return `Tempo estimado: ${totalSegundos} segundos`
+  }
+}
 
 export default function NovaCampanhaPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [etapaAtual, setEtapaAtual] = useState(1)
+  const [etapaAtual, setEtapaAtual] = useState<EtapaCampanha>('informacoes')
   const [loading, setLoading] = useState(false)
   const [criandoCampanha, setCriandoCampanha] = useState(false)
   
@@ -85,7 +126,7 @@ export default function NovaCampanhaPage() {
     template_id: 0,
     instancia_id: 0,
     filtro_clientes: {},
-    intervalo_segundos: 10
+    intervalo_segundos: 30
   })
   
   const [filtroSelecionado, setFiltroSelecionado] = useState<string>('todos')
@@ -141,35 +182,163 @@ export default function NovaCampanhaPage() {
   }
 
   const proximaEtapa = () => {
-    if (etapaAtual < ETAPAS.length) {
-      setEtapaAtual(etapaAtual + 1)
+    const indexAtual = ETAPAS.indexOf(etapaAtual)
+    if (indexAtual < ETAPAS.length - 1 && validarEtapaAtual()) {
+      setEtapaAtual(ETAPAS[indexAtual + 1])
     }
   }
 
   const etapaAnterior = () => {
-    if (etapaAtual > 1) {
-      setEtapaAtual(etapaAtual - 1)
+    const indexAtual = ETAPAS.indexOf(etapaAtual)
+    if (indexAtual > 0) {
+      setEtapaAtual(ETAPAS[indexAtual - 1])
     }
   }
 
+  const getEtapaNumero = (etapa: EtapaCampanha): number => {
+    return ETAPAS.indexOf(etapa) + 1
+  }
+
+  const getTotalEtapas = (): number => {
+    return ETAPAS.length
+  }
+
   const validarEtapaAtual = (): boolean => {
-    switch (etapaAtual) {
-      case 1:
-        return campanha.nome.trim().length > 0
-      case 2:
-        return campanha.template_id !== 0
-      case 3:
-        return filtroSelecionado !== '' && totalClientes > 0
-      case 4:
-        if (!campanha.instancia_id) return false
-        if (campanha.data_agendamento) {
-          const dataAgendamento = new Date(campanha.data_agendamento as string)
-          if (dataAgendamento <= new Date()) return false
-        }
-        return true
-      default:
-        return true
+    if (etapaAtual === 'informacoes') {
+      if (!campanha.nome?.trim()) {
+        toast({
+          title: "Nome obrigatório",
+          description: "Digite um nome para a campanha",
+          variant: "destructive"
+        })
+        return false
+      }
+      return true
     }
+
+    if (etapaAtual === 'template') {
+      if (!campanha.template_id) {
+        toast({
+          title: "Template obrigatório",
+          description: "Selecione um template para a campanha",
+          variant: "destructive"
+        })
+        return false
+      }
+      return true
+    }
+
+    if (etapaAtual === 'clientes') {
+      if (totalClientes === 0) {
+        toast({
+          title: "Nenhum cliente selecionado",
+          description: "Selecione pelo menos um cliente para enviar a campanha",
+          variant: "destructive"
+        })
+        return false
+      }
+      return true
+    }
+
+    if (etapaAtual === 'configuracoes') {
+      if (!campanha.instancia_id) {
+        toast({
+          title: "Instância obrigatória",
+          description: "Selecione uma instância WhatsApp para enviar as mensagens",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      const instanciaAtual = instancias.find(i => i.id === campanha.instancia_id)
+      if (!instanciaAtual || (instanciaAtual.status !== 'conectada' && instanciaAtual.status !== 'connected')) {
+        toast({
+          title: "Instância desconectada",
+          description: "A instância selecionada não está conectada",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      if (campanha.data_agendamento) {
+        const dataAgendamento = new Date(campanha.data_agendamento)
+        if (dataAgendamento < new Date()) {
+          toast({
+            title: "Data de agendamento inválida",
+            description: "A data de agendamento deve ser futura",
+            variant: "destructive"
+          })
+          return false
+        }
+      }
+
+      return true
+    }
+
+    if (etapaAtual === 'revisao') {
+      // Validar todas as etapas novamente
+      if (!campanha.nome?.trim()) {
+        toast({
+          title: "Nome obrigatório",
+          description: "Volte à primeira etapa e digite um nome para a campanha",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      if (!campanha.template_id) {
+        toast({
+          title: "Template obrigatório",
+          description: "Volte à etapa de template e selecione um template",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      if (totalClientes === 0) {
+        toast({
+          title: "Nenhum cliente selecionado",
+          description: "Volte à etapa de clientes e selecione pelo menos um cliente",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      if (!campanha.instancia_id) {
+        toast({
+          title: "Instância obrigatória",
+          description: "Volte à etapa de configurações e selecione uma instância",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      const instanciaAtual = instancias.find(i => i.id === campanha.instancia_id)
+      if (!instanciaAtual || (instanciaAtual.status !== 'conectada' && instanciaAtual.status !== 'connected')) {
+        toast({
+          title: "Instância desconectada",
+          description: "Volte à etapa de configurações e selecione uma instância conectada",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      if (campanha.data_agendamento) {
+        const dataAgendamento = new Date(campanha.data_agendamento)
+        if (dataAgendamento < new Date()) {
+          toast({
+            title: "Data de agendamento inválida",
+            description: "Volte à etapa de configurações e corrija a data de agendamento",
+            variant: "destructive"
+          })
+          return false
+        }
+      }
+
+      return true
+    }
+
+    return true
   }
 
   const criarCampanha = async () => {
@@ -247,56 +416,51 @@ export default function NovaCampanhaPage() {
       {/* Indicador de Etapas */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {ETAPAS.map((etapa, index) => {
-          const isAtual = etapa.id === etapaAtual
-          const isConcluida = etapa.id < etapaAtual
-          const Icone = etapa.icone
+          const isAtual = etapa === etapaAtual
+          const isConcluida = index < ETAPAS.indexOf(etapaAtual)
+          const info = ETAPAS_INFO[etapa]
+          const Icone = info.icone
           
           return (
             <Card 
-              key={etapa.id}
+              key={etapa}
               className={`relative ${
                 isAtual 
-                  ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                  : isConcluida 
-                  ? 'bg-green-50 dark:bg-green-900/20' 
-                  : 'bg-gray-50 dark:bg-gray-800'
+                  ? 'ring-2 ring-blue-500'
+                  : isConcluida
+                    ? 'bg-blue-50 dark:bg-blue-900/20'
+                    : ''
               }`}
             >
-              <CardContent className="p-4 md:p-6">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${
-                    isAtual 
-                      ? 'bg-blue-500 text-white' 
-                      : isConcluida 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-gray-300 text-gray-600'
-                  }`}>
-                    {isConcluida ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Icone className="h-4 w-4" />
-                    )}
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className={`
+                    rounded-full p-2
+                    ${isAtual 
+                      ? 'bg-blue-100 text-blue-600'
+                      : isConcluida
+                        ? 'bg-blue-100 text-blue-600'
+                        : 'bg-gray-100 text-gray-400'
+                    }
+                  `}>
+                    <Icone className="h-4 w-4" />
                   </div>
-                  <div className="hidden md:block flex-1">
-                    <p className={`font-medium ${
-                      isAtual ? 'text-blue-700 dark:text-blue-300' : 
-                      isConcluida ? 'text-green-700 dark:text-green-300' : 
-                      'text-gray-600 dark:text-gray-400'
-                    }`}>
-                      {etapa.nome}
+                  <div>
+                    <p className={`
+                      font-medium
+                      ${isAtual 
+                        ? 'text-blue-600'
+                        : isConcluida
+                          ? 'text-gray-900 dark:text-white'
+                          : 'text-gray-600 dark:text-gray-400'
+                      }`}>
+                      {info.nome}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {etapa.descricao}
+                      {info.descricao}
                     </p>
                   </div>
                 </div>
-                
-                {/* Linha conectora para desktop */}
-                {index < ETAPAS.length - 1 && (
-                  <div className="hidden lg:block absolute top-1/2 -right-2 transform -translate-y-1/2">
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
-                  </div>
-                )}
               </CardContent>
             </Card>
           )
@@ -307,64 +471,51 @@ export default function NovaCampanhaPage() {
       <Card>
         <CardHeader className="space-y-3">
           <CardTitle className="text-2xl">
-            {ETAPAS[etapaAtual - 1].nome}
+            {ETAPAS_INFO[etapaAtual].nome}
           </CardTitle>
           <CardDescription className="text-base">
-            {ETAPAS[etapaAtual - 1].descricao}
+            {ETAPAS_INFO[etapaAtual].descricao}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6 space-y-6">
-          {renderEtapa()}
+          {renderConteudoEtapa()}
           
           {/* Botões de Navegação */}
           <div className="flex justify-between items-center pt-6 border-t">
             <Button
               variant="outline"
               onClick={etapaAnterior}
-              disabled={etapaAtual === 1}
+              disabled={etapaAtual === 'informacoes'}
               className="px-6"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
               Anterior
             </Button>
             
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span>{etapaAtual} de {ETAPAS.length}</span>
+              <span>{getEtapaNumero(etapaAtual)} de {getTotalEtapas()}</span>
             </div>
             
-            {etapaAtual === ETAPAS.length ? (
+            {etapaAtual === 'revisao' ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    disabled={!validarEtapaAtual() || criandoCampanha}
-                    className="bg-green-600 hover:bg-green-700 px-8"
-                  >
-                    {criandoCampanha ? (
-                      <>
-                        <Clock className="h-4 w-4 mr-2 animate-spin" />
-                        Criando...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Criar Campanha
-                      </>
-                    )}
+                  <Button className="px-6" disabled={criandoCampanha}>
+                    {criandoCampanha ? 'Criando...' : 'Criar Campanha'}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirmar criação da campanha</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Tem certeza que deseja criar esta campanha de envio em massa?
                       {campanha.data_agendamento ? (
-                        <p className="mt-2">
-                          A campanha será agendada para: {new Date(campanha.data_agendamento).toLocaleString()}
-                        </p>
+                        <>
+                          A campanha será agendada para {new Date(campanha.data_agendamento).toLocaleString()}.
+                          Você poderá cancelar o agendamento até o horário definido.
+                        </>
                       ) : (
-                        <p className="mt-2">
+                        <>
                           A campanha será iniciada imediatamente após a criação.
-                        </p>
+                          Este processo não pode ser desfeito.
+                        </>
                       )}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
@@ -377,13 +528,8 @@ export default function NovaCampanhaPage() {
                 </AlertDialogContent>
               </AlertDialog>
             ) : (
-              <Button
-                onClick={proximaEtapa}
-                disabled={!validarEtapaAtual()}
-                className="px-8"
-              >
-                Próximo
-                <ArrowRight className="h-4 w-4 ml-2" />
+              <Button onClick={proximaEtapa} className="px-6">
+                Próxima
               </Button>
             )}
           </div>
@@ -392,17 +538,17 @@ export default function NovaCampanhaPage() {
     </div>
   )
 
-  function renderEtapa() {
+  function renderConteudoEtapa() {
     switch (etapaAtual) {
-      case 1:
+      case 'informacoes':
         return renderEtapaInformacoes()
-      case 2:
+      case 'template':
         return renderEtapaTemplate()
-      case 3:
+      case 'clientes':
         return renderEtapaClientes()
-      case 4:
+      case 'configuracoes':
         return renderEtapaConfiguracoes()
-      case 5:
+      case 'revisao':
         return renderEtapaRevisao()
       default:
         return null
@@ -631,12 +777,23 @@ export default function NovaCampanhaPage() {
                       <h3 className="font-medium text-gray-900 dark:text-white">
                         {instancia.instance_name}
                       </h3>
+                      <p className="text-sm text-gray-500">
+                        Status: {instancia.status === 'connected' ? 'Conectada' : instancia.status}
+                      </p>
                     </div>
+                    {campanha.instancia_id === instancia.id && (
+                      <CheckCircle2 className="h-5 w-5 text-blue-500" />
+                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+          {!campanha.instancia_id && (
+            <p className="text-sm text-red-500">
+              Selecione uma instância para continuar
+            </p>
+          )}
         </div>
 
         {/* Configurações de Envio */}
@@ -644,22 +801,29 @@ export default function NovaCampanhaPage() {
           <Label className="text-base font-medium">
             Intervalo entre envios: {campanha.intervalo_segundos} segundos
           </Label>
-          <input
-            type="range"
-            min="5"
-            max="60"
-            step="5"
-            value={campanha.intervalo_segundos}
-            onChange={(e) => setCampanha({ 
-              ...campanha, 
-              intervalo_segundos: parseInt(e.target.value) 
-            })}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-          <div className="flex justify-between text-sm text-gray-500">
-            <span>5s (Rápido)</span>
-            <span>30s (Recomendado)</span>
-            <span>60s (Seguro)</span>
+          <div className="relative">
+            <input
+              type="range"
+              min="5"
+              max="60"
+              step="5"
+              value={campanha.intervalo_segundos}
+              onChange={(e) => setCampanha({ 
+                ...campanha, 
+                intervalo_segundos: parseInt(e.target.value) 
+              })}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="absolute -bottom-6 left-0 right-0 flex justify-between text-sm text-gray-500">
+              <span className="relative" style={{ left: '0%' }}>5s</span>
+              <span className="relative" style={{ left: '0%' }}>30s</span>
+              <span className="relative" style={{ right: '0%' }}>60s</span>
+            </div>
+          </div>
+          <div className="flex justify-between text-sm text-gray-500 mt-8">
+            <span>Rápido</span>
+            <span>Recomendado</span>
+            <span>Seguro</span>
           </div>
         </div>
         
@@ -675,14 +839,62 @@ export default function NovaCampanhaPage() {
                 <li>• <strong>15-30s:</strong> Recomendado para a maioria dos casos</li>
                 <li>• <strong>45-60s:</strong> Para grandes volumes (&gt;500 clientes)</li>
               </ul>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
+                Intervalos maiores reduzem o risco de bloqueio do WhatsApp
+              </p>
             </div>
           </div>
+        </div>
+
+        {/* Agendamento */}
+        <div className="space-y-4">
+          <Label className="text-base font-medium">Agendamento (Opcional)</Label>
+          <div className="flex items-center gap-4">
+            <input
+              type="datetime-local"
+              className="px-3 py-2 border rounded-md"
+              value={campanha.data_agendamento || ''}
+              onChange={(e) => setCampanha({
+                ...campanha,
+                data_agendamento: e.target.value || undefined
+              })}
+              min={new Date().toISOString().slice(0, 16)}
+            />
+            {campanha.data_agendamento && (
+              <Button
+                variant="ghost"
+                onClick={() => setCampanha({
+                  ...campanha,
+                  data_agendamento: undefined
+                })}
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
+          <p className="text-sm text-gray-500">
+            {campanha.data_agendamento 
+              ? `A campanha será iniciada em ${new Date(campanha.data_agendamento).toLocaleString()}`
+              : 'A campanha será iniciada imediatamente após a criação'}
+          </p>
         </div>
       </div>
     )
   }
 
   function renderEtapaRevisao() {
+    const getPreviewMensagem = () => {
+      if (!templateSelecionado) return ''
+      
+      // Exemplo de substituição de variáveis
+      let preview = templateSelecionado.conteudo
+        .replace(/\{nome\}/g, 'João Silva')
+        .replace(/\{plano\}/g, 'Plano Premium')
+        .replace(/\{vencimento\}/g, '15/04/2024')
+      
+      return preview
+    }
+
     return (
       <div className="space-y-8">
         {/* Resumo da Campanha */}
@@ -719,6 +931,9 @@ export default function NovaCampanhaPage() {
               <div>
                 <Label className="text-sm font-medium text-gray-500">Instância WhatsApp</Label>
                 <p className="text-base font-medium">{instanciaSelecionada?.instance_name}</p>
+                <p className="text-sm text-green-600">
+                  Status: {instanciaSelecionada?.status === 'connected' ? 'Conectada' : instanciaSelecionada?.status}
+                </p>
               </div>
               <div>
                 <Label className="text-sm font-medium text-gray-500">Destinatários</Label>
@@ -736,6 +951,19 @@ export default function NovaCampanhaPage() {
                   {getTempoEstimado(totalClientes, campanha.intervalo_segundos)}
                 </p>
               </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-500">Agendamento</Label>
+                {campanha.data_agendamento ? (
+                  <>
+                    <p className="text-base font-medium">
+                      {new Date(campanha.data_agendamento).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-gray-500">Campanha agendada</p>
+                  </>
+                ) : (
+                  <p className="text-base">Envio imediato após criação</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -745,17 +973,38 @@ export default function NovaCampanhaPage() {
           <CardHeader>
             <CardTitle className="text-lg">Preview da Mensagem</CardTitle>
             <CardDescription>
-              Assim ficará a mensagem enviada para os clientes
+              Exemplo de como a mensagem será exibida para os clientes (com variáveis substituídas)
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg border">
               <div className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-                {templateSelecionado?.conteudo}
+                {getPreviewMensagem()}
               </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-500">
+              <p>* As variáveis serão substituídas pelos dados reais de cada cliente</p>
             </div>
           </CardContent>
         </Card>
+
+        {/* Alertas e Validações */}
+        {totalClientes > 500 && campanha.intervalo_segundos < 45 && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-200">
+                  Atenção: Volume Alto de Mensagens
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  Para {totalClientes} clientes, recomendamos um intervalo maior (45-60s) para evitar bloqueios do WhatsApp.
+                  Considere aumentar o intervalo ou dividir em múltiplas campanhas.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -777,19 +1026,5 @@ export default function NovaCampanhaPage() {
       return plano?.nome || 'Filtro por plano'
     }
     return getDescricaoFiltro(filtro)
-  }
-
-  function getTempoEstimado(clientes: number, intervalo: number): string {
-    const totalSegundos = clientes * intervalo
-    const minutos = Math.floor(totalSegundos / 60)
-    const horas = Math.floor(minutos / 60)
-    
-    if (horas > 0) {
-      return `Tempo estimado: ${horas}h ${minutos % 60}min`
-    } else if (minutos > 0) {
-      return `Tempo estimado: ${minutos} minutos`
-    } else {
-      return `Tempo estimado: ${totalSegundos} segundos`
-    }
   }
 } 
