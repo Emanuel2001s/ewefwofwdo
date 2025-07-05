@@ -10,7 +10,7 @@ export interface MessageTemplate {
   tipo: 'vencimento' | 'pagamento' | 'boas_vindas' | 'manutencao' | 'personalizada'
   message_type: 'texto' | 'imagem'
   assunto?: string
-  mensagem: string
+  conteudo: string
   imagem_url?: string
   imagem_caption?: string
   ativo: boolean
@@ -41,7 +41,7 @@ export async function processTemplate(
   const variables = await buildTemplateVariables(cliente)
   
   // Processar texto principal
-  const texto = replaceVariables(template.mensagem, variables)
+  const texto = replaceVariables(template.conteudo, variables)
   
   // Processar caption da imagem se existir
   let imagemCaption: string | undefined
@@ -322,7 +322,7 @@ export async function previewTemplate(template: MessageTemplate): Promise<{ text
     'ano_atual': format(new Date(), 'yyyy', { locale: ptBR })
   }
   
-  const texto = replaceVariables(template.mensagem, variables)
+  const texto = replaceVariables(template.conteudo, variables)
   let imagemCaption: string | undefined
   
   if (template.message_type === 'imagem' && template.imagem_caption) {

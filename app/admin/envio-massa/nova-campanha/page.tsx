@@ -31,7 +31,7 @@ import { Separator } from "@/components/ui/separator"
 type Template = {
   id: number
   nome: string
-  mensagem: string
+  conteudo: string
   message_type: string
 }
 
@@ -58,6 +58,7 @@ type Campanha = {
   }
   intervalo_segundos: number
   data_agendamento?: string
+  descricao?: string
 }
 
 const ETAPAS = [
@@ -89,6 +90,7 @@ export default function NovaCampanhaPage() {
   
   const [filtroSelecionado, setFiltroSelecionado] = useState<string>('todos')
   const [totalClientes, setTotalClientes] = useState(0)
+  const [filtros, setFiltros] = useState<any>({})
 
   useEffect(() => {
     carregarDados()
@@ -97,24 +99,34 @@ export default function NovaCampanhaPage() {
   const carregarDados = async () => {
     setLoading(true)
     try {
-      const [templatesRes, instanciasRes, planosRes] = await Promise.all([
+      const [templatesRes, instanciasRes, planosRes, filtrosRes] = await Promise.all([
         fetch('/api/envio-massa/templates'),
         fetch('/api/envio-massa/instancias'),
-        fetch('/api/planos')
+        fetch('/api/planos'),
+        fetch('/api/envio-massa/clientes/filtros')
       ])
 
-      const [templatesData, instanciasData, planosData] = await Promise.all([
+      const [templatesData, instanciasData, planosData, filtrosData] = await Promise.all([
         templatesRes.json(),
         instanciasRes.json(),
-        planosRes.json()
+        planosRes.json(),
+        filtrosRes.json()
       ])
 
       setTemplates(templatesData.templates || [])
       setInstancias(instanciasData.instancias || [])
       setPlanos(planosData.planos || [])
+      setFiltros(filtrosData.filtros || {})
       
-      // Definir total inicial (todos os clientes)
-      setTotalClientes(0)
+      // Definir filtros iniciais
+      setCampanha(prev => ({
+        ...prev,
+        filtro_clientes: filtrosData.filtros?.ativos?.filtro || {}
+      }))
+      
+      // Definir total inicial (clientes ativos)
+      setTotalClientes(filtrosData.filtros?.ativos?.total || 0)
+      setFiltroSelecionado('ativos')
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
@@ -421,10 +433,10 @@ export default function NovaCampanhaPage() {
             <Textarea
               id="descricao"
               placeholder="Descrição detalhada da campanha..."
-              value={campanha.descricao}
+              value={campanha.descricao || ''}
               onChange={(e) => setCampanha({ ...campanha, descricao: e.target.value })}
               rows={4}
-              className="text-base"
+              className="resize-none"
             />
           </div>
         </div>
@@ -472,7 +484,7 @@ export default function NovaCampanhaPage() {
                 <div className="space-y-4">
                   <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                     <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-4">
-                      {template.mensagem}
+                      {template.conteudo}
                     </p>
                   </div>
                 </div>
@@ -488,45 +500,9 @@ export default function NovaCampanhaPage() {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.entries(campanha.filtro_clientes).map(([key, filtro]: [string, any]) => {
-            if (key === 'plano_id') {
-              // Renderizar filtros por plano separadamente
-              const plano = planos.find(p => p.id === filtro)
-              return (
-                <Card
-                  key={`plano-${plano?.id}`}
-                  className={`cursor-pointer transition-all hover:shadow-lg ${
-                    filtroSelecionado === `plano-${plano?.id}`
-                      ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'hover:ring-1 hover:ring-gray-300'
-                  }`}
-                  onClick={() => {
-                    setFiltroSelecionado(`plano-${plano?.id}`)
-                    setCampanha({ ...campanha, filtro_clientes: { plano_id: plano?.id } })
-                    setTotalClientes(0)
-                  }}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900 dark:text-white">
-                          {plano?.nome}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          Filtro por plano específico
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {totalClientes}
-                        </p>
-                        <p className="text-xs text-gray-500">clientes</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            }
+          {/* Filtros padrão */}
+          {Object.entries(filtros).map(([key, filtro]: [string, any]) => {
+            if (key === 'por_plano') return null // Renderizar planos separadamente
             
             return (
               <Card
@@ -538,23 +514,20 @@ export default function NovaCampanhaPage() {
                 }`}
                 onClick={() => {
                   setFiltroSelecionado(key)
-                  setCampanha({ ...campanha, filtro_clientes: { [key]: true } })
-                  setTotalClientes(0)
+                  setCampanha({ ...campanha, filtro_clientes: filtro.filtro })
+                  setTotalClientes(filtro.total)
                 }}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">
-                        {key.charAt(0).toUpperCase() + key.slice(1)}
+                        {filtro.nome}
                       </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {getDescricaoFiltro(key)}
-                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {totalClientes}
+                        {filtro.total}
                       </p>
                       <p className="text-xs text-gray-500">clientes</p>
                     </div>
@@ -563,6 +536,39 @@ export default function NovaCampanhaPage() {
               </Card>
             )
           })}
+
+          {/* Filtros por plano */}
+          {filtros.por_plano?.map((plano: any) => (
+            <Card
+              key={`plano-${plano.id}`}
+              className={`cursor-pointer transition-all hover:shadow-lg ${
+                filtroSelecionado === `plano-${plano.id}`
+                  ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'hover:ring-1 hover:ring-gray-300'
+              }`}
+              onClick={() => {
+                setFiltroSelecionado(`plano-${plano.id}`)
+                setCampanha({ ...campanha, filtro_clientes: plano.filtro })
+                setTotalClientes(plano.total)
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">
+                      {plano.nome}
+                    </h3>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {plano.total}
+                    </p>
+                    <p className="text-xs text-gray-500">clientes</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
         
         {totalClientes > 0 && (
@@ -694,7 +700,7 @@ export default function NovaCampanhaPage() {
               {campanha.descricao && (
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Descrição</Label>
-                  <p className="text-base">{campanha.descricao}</p>
+                  <p className="text-base">{campanha.descricao || 'Sem descrição'}</p>
                 </div>
               )}
               <div>
@@ -745,7 +751,7 @@ export default function NovaCampanhaPage() {
           <CardContent>
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg border">
               <div className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-                {templateSelecionado?.mensagem}
+                {templateSelecionado?.conteudo}
               </div>
             </div>
           </CardContent>
