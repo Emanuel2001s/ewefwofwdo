@@ -35,7 +35,7 @@ export async function POST(
         c.filtro_clientes,
         c.intervalo_segundos,
         c.total_clientes,
-        c.agendamento,
+        c.data_agendamento,
         mt.mensagem as template_conteudo,
         mt.message_type,
         ei.instance_name,
@@ -111,7 +111,7 @@ export async function POST(
     `, [campanhaId])
 
     // Se a campanha não tem agendamento, processar imediatamente
-    if (!campanhaData.agendamento) {
+    if (!campanhaData.data_agendamento) {
       console.log(`🚀 Iniciando processamento imediato da campanha ${campanhaData.nome}`)
       
       // Processar em background
@@ -130,7 +130,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: campanhaData.agendamento 
+      message: campanhaData.data_agendamento 
         ? "Campanha agendada iniciada com sucesso" 
         : "Campanha iniciada com sucesso, processando envios",
       campanha_id: campanhaId,
