@@ -66,6 +66,7 @@ CREATE TABLE campanhas_envio_massa (
     enviados INT DEFAULT 0,
     sucessos INT DEFAULT 0,
     falhas INT DEFAULT 0,
+    data_agendamento DATETIME NULL,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     data_inicio TIMESTAMP NULL,
     data_conclusao TIMESTAMP NULL,
