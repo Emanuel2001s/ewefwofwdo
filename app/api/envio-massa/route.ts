@@ -10,35 +10,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Buscar campanhas recentes
+    const searchParams = request.nextUrl.searchParams
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const offset = (page - 1) * limit
+
+    // Buscar total de registros
+    const totalResult = await executeQuery(`
+      SELECT COUNT(*) as total FROM campanhas_envio_massa
+    `) as any[]
+
+    const total = totalResult[0].total
+
+    // Buscar campanhas com paginação
     const campanhas = await executeQuery(`
       SELECT 
-        c.id,
-        c.nome,
-        c.status,
-        c.total_clientes,
-        c.enviados,
-        c.sucessos,
-        c.falhas,
-        c.data_criacao,
-        c.data_inicio,
-        c.data_conclusao,
+        c.*,
         mt.nome as template_nome,
-        ei.nome as instancia_nome
+        ei.instance_name as instancia_nome
       FROM campanhas_envio_massa c
       LEFT JOIN message_templates mt ON c.template_id = mt.id
       LEFT JOIN evolution_instancias ei ON c.instancia_id = ei.id
-      ORDER BY c.data_criacao DESC
-      LIMIT 10
-    `) as any[]
+      ORDER BY c.id DESC
+      LIMIT ? OFFSET ?
+    `, [limit, offset]) as any[]
 
-    return NextResponse.json({ 
-      campanhas: campanhas || [],
-      success: true 
+    return NextResponse.json({
+      success: true,
+      data: campanhas,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        current_page: page,
+        per_page: limit
+      }
     })
 
   } catch (error) {
-    console.error("Erro ao buscar campanhas:", error)
+    console.error("Erro ao listar campanhas:", error)
     return NextResponse.json(
       { error: "Erro interno do servidor" },
       { status: 500 }
@@ -54,35 +63,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const dados = await request.json()
-    console.log("Dados recebidos:", dados)
-    
+    const body = await request.json()
     const {
       nome,
       template_id,
       instancia_id,
       filtro_clientes,
       intervalo_segundos,
-      agendamento,
       data_agendamento
-    } = dados
+    } = body
 
-    // Validar dados obrigatórios
-    console.log("Validando campos:", { nome, template_id, instancia_id })
-    if (!nome || !template_id || !instancia_id) {
+    // Validar campos obrigatórios
+    if (!nome) {
       return NextResponse.json({ 
-        error: "Campos obrigatórios: nome, template_id, instancia_id" 
+        error: "Nome da campanha é obrigatório" 
       }, { status: 400 })
     }
 
-    // Validar agendamento
-    if (agendamento === 'agendado') {
-      if (!data_agendamento) {
-        return NextResponse.json({ 
-          error: "Data de agendamento é obrigatória para campanhas agendadas" 
-        }, { status: 400 })
-      }
+    if (!template_id) {
+      return NextResponse.json({ 
+        error: "Template é obrigatório" 
+      }, { status: 400 })
+    }
 
+    if (!instancia_id) {
+      return NextResponse.json({ 
+        error: "Instância é obrigatória" 
+      }, { status: 400 })
+    }
+
+    if (!filtro_clientes) {
+      return NextResponse.json({ 
+        error: "Filtros de clientes são obrigatórios" 
+      }, { status: 400 })
+    }
+
+    if (!intervalo_segundos || intervalo_segundos < 0) {
+      return NextResponse.json({ 
+        error: "Intervalo entre envios é obrigatório e deve ser maior ou igual a 0" 
+      }, { status: 400 })
+    }
+
+    // Validar data de agendamento se fornecida
+    if (data_agendamento) {
       const dataAgendamento = new Date(data_agendamento)
       if (dataAgendamento <= new Date()) {
         return NextResponse.json({ 
@@ -91,13 +114,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Contar total de clientes baseado no filtro
-    console.log("Contando clientes com filtro:", filtro_clientes)
-    const totalClientes = await contarClientesPorFiltro(filtro_clientes)
-    console.log("Total de clientes encontrados:", totalClientes)
-
-    // Inserir campanha no banco
-    const resultado = await executeQuery(`
+    // Criar campanha
+    const result = await executeQuery(`
       INSERT INTO campanhas_envio_massa (
         nome,
         template_id,
@@ -105,36 +123,26 @@ export async function POST(request: NextRequest) {
         filtro_clientes,
         intervalo_segundos,
         status,
-        total_clientes,
-        created_by,
-        data_agendamento
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        data_agendamento,
+        created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       nome,
       template_id,
       instancia_id,
       JSON.stringify(filtro_clientes),
-      intervalo_segundos || 10,
-      agendamento === 'agendado' ? 'agendada' : 'rascunho',
-      totalClientes,
-      user.id,
-      agendamento === 'agendado' ? data_agendamento : null
+      intervalo_segundos,
+      data_agendamento ? 'agendada' : 'rascunho',
+      data_agendamento,
+      user.id
     ]) as any
 
-    const campanhaId = resultado.insertId
-
-    // Se for envio imediato, criar registros de detalhes
-    if (agendamento !== 'agendado') {
-      await criarDetalhesEnvio(campanhaId, filtro_clientes)
-    }
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      campanha_id: campanhaId,
-      message: agendamento === 'agendado' 
-        ? "Campanha agendada com sucesso" 
+      message: data_agendamento
+        ? "Campanha criada e agendada com sucesso"
         : "Campanha criada com sucesso",
-      total_clientes: totalClientes
+      id: result.insertId
     })
 
   } catch (error) {

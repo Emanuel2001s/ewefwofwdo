@@ -23,39 +23,40 @@ import {
   AlertCircle
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Loading } from "@/components/ui/loading"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Separator } from "@/components/ui/separator"
 
-interface Template {
+type Template = {
   id: number
   nome: string
-  conteudo: string
-  categoria: string
-  preview: string
-  variaveis: string[]
+  mensagem: string
+  message_type: string
 }
 
-interface Instancia {
+type Instancia = {
   id: number
-  nome: string
+  instance_name: string
   status: string
-  disponivel: boolean
-  statusTexto: string
-  statusCor: string
 }
 
-interface FiltroClientes {
+type Plano = {
+  id: number
   nome: string
-  total: number
-  filtro: any
 }
 
-interface CampanhaData {
+type Campanha = {
   nome: string
-  descricao: string
-  template_id: number | null
-  instancia_id: number | null
-  filtro_clientes: any
+  template_id: number
+  instancia_id: number
+  filtro_clientes: {
+    status?: string
+    vencidos?: boolean
+    proximos_vencimento?: boolean
+    plano_id?: number
+  }
   intervalo_segundos: number
-  agendamento: 'imediato' | 'agendado'
   data_agendamento?: string
 }
 
@@ -77,17 +78,13 @@ export default function NovaCampanhaPage() {
   // Estados dos dados
   const [templates, setTemplates] = useState<Template[]>([])
   const [instancias, setInstancias] = useState<Instancia[]>([])
-  const [filtrosClientes, setFiltrosClientes] = useState<any>({})
-  
-  // Estado da campanha
-  const [campanha, setCampanha] = useState<CampanhaData>({
-    nome: "",
-    descricao: "",
-    template_id: null,
-    instancia_id: null,
+  const [planos, setPlanos] = useState<Plano[]>([])
+  const [campanha, setCampanha] = useState<Campanha>({
+    nome: '',
+    template_id: 0,
+    instancia_id: 0,
     filtro_clientes: {},
-    intervalo_segundos: 10,
-    agendamento: 'imediato'
+    intervalo_segundos: 10
   })
   
   const [filtroSelecionado, setFiltroSelecionado] = useState<string>('todos')
@@ -100,24 +97,24 @@ export default function NovaCampanhaPage() {
   const carregarDados = async () => {
     setLoading(true)
     try {
-      const [templatesRes, instanciasRes, filtrosRes] = await Promise.all([
+      const [templatesRes, instanciasRes, planosRes] = await Promise.all([
         fetch('/api/envio-massa/templates'),
         fetch('/api/envio-massa/instancias'),
-        fetch('/api/envio-massa/clientes/filtros')
+        fetch('/api/planos')
       ])
 
-      const [templatesData, instanciasData, filtrosData] = await Promise.all([
+      const [templatesData, instanciasData, planosData] = await Promise.all([
         templatesRes.json(),
         instanciasRes.json(),
-        filtrosRes.json()
+        planosRes.json()
       ])
 
       setTemplates(templatesData.templates || [])
       setInstancias(instanciasData.instancias || [])
-      setFiltrosClientes(filtrosData.filtros || {})
+      setPlanos(planosData.planos || [])
       
       // Definir total inicial (todos os clientes)
-      setTotalClientes(filtrosData.filtros?.todos?.total || 0)
+      setTotalClientes(0)
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
@@ -148,13 +145,12 @@ export default function NovaCampanhaPage() {
       case 1:
         return campanha.nome.trim().length > 0
       case 2:
-        return campanha.template_id !== null
+        return campanha.template_id !== 0
       case 3:
         return filtroSelecionado !== '' && totalClientes > 0
       case 4:
         if (!campanha.instancia_id) return false
-        if (campanha.agendamento === 'agendado') {
-          if (!campanha.data_agendamento) return false
+        if (campanha.data_agendamento) {
           const dataAgendamento = new Date(campanha.data_agendamento as string)
           if (dataAgendamento <= new Date()) return false
         }
@@ -165,59 +161,32 @@ export default function NovaCampanhaPage() {
   }
 
   const criarCampanha = async () => {
+    if (!validarEtapaAtual()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos obrigatórios corretamente.",
+        variant: "destructive"
+      })
+      return
+    }
+
     setCriandoCampanha(true)
     try {
-      // Criar a campanha
       const response = await fetch('/api/envio-massa', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...campanha,
-          agendamento: 'imediato'
-        })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(campanha)
       })
 
       const data = await response.json()
 
       if (data.success) {
-        const campanhaId = data.campanha_id
-
-        // Perguntar se deseja iniciar imediatamente
-        const iniciarAgora = window.confirm(
-          `Campanha criada com sucesso!\n\n` +
-          `• ${data.total_clientes} cliente(s) serão incluídos\n` +
-          `• Intervalo: ${campanha.intervalo_segundos} segundos entre envios\n\n` +
-          `Deseja iniciar o envio agora?`
-        )
-
-        if (iniciarAgora) {
-          // Iniciar campanha
-          const iniciarResponse = await fetch(`/api/envio-massa/${campanhaId}/iniciar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          })
-
-          const iniciarData = await iniciarResponse.json()
-
-          if (iniciarData.success) {
-            toast({
-              title: "Campanha Iniciada!",
-              description: `Envio em massa iniciado para ${data.total_clientes} cliente(s)`,
-            })
-          } else {
-            toast({
-              title: "Campanha Criada",
-              description: "Campanha criada mas não foi possível iniciar automaticamente",
-              variant: "default"
-            })
-          }
-        } else {
-          toast({
-            title: "Campanha Criada!",
-            description: "Campanha salva como rascunho. Inicie quando desejar.",
-          })
-        }
-
+        toast({
+          title: "Sucesso",
+          description: data.message
+        })
         router.push('/admin/envio-massa')
       } else {
         throw new Error(data.error || 'Erro ao criar campanha')
@@ -226,7 +195,7 @@ export default function NovaCampanhaPage() {
       console.error('Erro ao criar campanha:', error)
       toast({
         title: "Erro",
-        description: "Erro ao criar campanha",
+        description: error instanceof Error ? error.message : "Erro ao criar campanha",
         variant: "destructive"
       })
     } finally {
@@ -239,28 +208,7 @@ export default function NovaCampanhaPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 md:space-y-8 p-4 md:p-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" disabled>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Nova Campanha</h1>
-            <p className="text-gray-600 dark:text-gray-400 text-lg">Carregando...</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <Loading />
     )
   }
 
@@ -373,23 +321,49 @@ export default function NovaCampanhaPage() {
             </div>
             
             {etapaAtual === ETAPAS.length ? (
-              <Button
-                onClick={criarCampanha}
-                disabled={!validarEtapaAtual() || criandoCampanha}
-                className="bg-green-600 hover:bg-green-700 px-8"
-              >
-                {criandoCampanha ? (
-                  <>
-                    <Clock className="h-4 w-4 mr-2 animate-spin" />
-                    Criando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Criar Campanha
-                  </>
-                )}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    disabled={!validarEtapaAtual() || criandoCampanha}
+                    className="bg-green-600 hover:bg-green-700 px-8"
+                  >
+                    {criandoCampanha ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Criar Campanha
+                      </>
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar criação da campanha</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja criar esta campanha de envio em massa?
+                      {campanha.data_agendamento ? (
+                        <p className="mt-2">
+                          A campanha será agendada para: {new Date(campanha.data_agendamento).toLocaleString()}
+                        </p>
+                      ) : (
+                        <p className="mt-2">
+                          A campanha será iniciada imediatamente após a criação.
+                        </p>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={criarCampanha}>
+                      Confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             ) : (
               <Button
                 onClick={proximaEtapa}
@@ -491,31 +465,16 @@ export default function NovaCampanhaPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">{template.nome}</CardTitle>
-                  <Badge variant="outline">{template.categoria}</Badge>
+                  <Badge variant="outline">{template.message_type}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="space-y-4">
                   <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                     <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-4">
-                      {template.preview}
+                      {template.mensagem}
                     </p>
                   </div>
-                  
-                  {template.variaveis && template.variaveis.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Variáveis disponíveis:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {template.variaveis.map((variavel, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {variavel}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -529,28 +488,29 @@ export default function NovaCampanhaPage() {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.entries(filtrosClientes).map(([key, filtro]: [string, any]) => {
-            if (key === 'por_plano') {
+          {Object.entries(campanha.filtro_clientes).map(([key, filtro]: [string, any]) => {
+            if (key === 'plano_id') {
               // Renderizar filtros por plano separadamente
-              return filtro.map((planoFiltro: any) => (
+              const plano = planos.find(p => p.id === filtro)
+              return (
                 <Card
-                  key={`plano-${planoFiltro.id}`}
+                  key={`plano-${plano?.id}`}
                   className={`cursor-pointer transition-all hover:shadow-lg ${
-                    filtroSelecionado === `plano-${planoFiltro.id}`
+                    filtroSelecionado === `plano-${plano?.id}`
                       ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
                       : 'hover:ring-1 hover:ring-gray-300'
                   }`}
                   onClick={() => {
-                    setFiltroSelecionado(`plano-${planoFiltro.id}`)
-                    setCampanha({ ...campanha, filtro_clientes: { tipo_filtro: `plano-${planoFiltro.id}`, ...planoFiltro.filtro } })
-                    setTotalClientes(planoFiltro.total)
+                    setFiltroSelecionado(`plano-${plano?.id}`)
+                    setCampanha({ ...campanha, filtro_clientes: { plano_id: plano?.id } })
+                    setTotalClientes(0)
                   }}
                 >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium text-gray-900 dark:text-white">
-                          {planoFiltro.nome}
+                          {plano?.nome}
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                           Filtro por plano específico
@@ -558,14 +518,14 @@ export default function NovaCampanhaPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {planoFiltro.total}
+                          {totalClientes}
                         </p>
                         <p className="text-xs text-gray-500">clientes</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
+              )
             }
             
             return (
@@ -578,15 +538,15 @@ export default function NovaCampanhaPage() {
                 }`}
                 onClick={() => {
                   setFiltroSelecionado(key)
-                  setCampanha({ ...campanha, filtro_clientes: { tipo_filtro: key, ...filtro.filtro } })
-                  setTotalClientes(filtro.total)
+                  setCampanha({ ...campanha, filtro_clientes: { [key]: true } })
+                  setTotalClientes(0)
                 }}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">
-                        {filtro.nome}
+                        {key.charAt(0).toUpperCase() + key.slice(1)}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {getDescricaoFiltro(key)}
@@ -594,7 +554,7 @@ export default function NovaCampanhaPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {filtro.total}
+                        {totalClientes}
                       </p>
                       <p className="text-xs text-gray-500">clientes</p>
                     </div>
@@ -625,7 +585,7 @@ export default function NovaCampanhaPage() {
   }
 
   function renderEtapaConfiguracoes() {
-    const instanciasDisponiveis = instancias.filter(i => i.disponivel)
+    const instanciasDisponiveis = instancias.filter(i => i.status === 'conectada' || i.status === 'connected')
     
     if (instanciasDisponiveis.length === 0) {
       return (
@@ -663,95 +623,14 @@ export default function NovaCampanhaPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">
-                        {instancia.nome}
+                        {instancia.instance_name}
                       </h3>
-                      <Badge className={`mt-1 ${
-                        instancia.statusCor === 'green' 
-                          ? 'bg-green-100 text-green-800 border-green-200'
-                          : 'bg-gray-100 text-gray-800 border-gray-200'
-                      }`}>
-                        {instancia.statusTexto}
-                      </Badge>
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${
-                      instancia.disponivel ? 'bg-green-500' : 'bg-red-500'
-                    }`} />
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
-
-        {/* Agendamento */}
-        <div className="space-y-4">
-          <Label className="text-base font-medium">Agendamento</Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card
-              className={`cursor-pointer transition-all hover:shadow-lg ${
-                campanha.agendamento === 'imediato'
-                  ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'hover:ring-1 hover:ring-gray-300'
-              }`}
-              onClick={() => setCampanha({ ...campanha, agendamento: 'imediato' })}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Send className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">
-                      Enviar Agora
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Iniciar envio imediatamente após criar
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className={`cursor-pointer transition-all hover:shadow-lg ${
-                campanha.agendamento === 'agendado'
-                  ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'hover:ring-1 hover:ring-gray-300'
-              }`}
-              onClick={() => setCampanha({ ...campanha, agendamento: 'agendado' })}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">
-                      Agendar Envio
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Escolher data e hora para iniciar
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {campanha.agendamento === 'agendado' && (
-            <div className="space-y-2 pt-4">
-              <Label htmlFor="data_agendamento" className="text-base font-medium">
-                Data e Hora do Envio *
-              </Label>
-              <Input
-                id="data_agendamento"
-                type="datetime-local"
-                value={campanha.data_agendamento || ''}
-                onChange={(e) => setCampanha({ 
-                  ...campanha, 
-                  data_agendamento: e.target.value 
-                })}
-                min={new Date().toISOString().slice(0, 16)}
-                className="text-base"
-              />
-            </div>
-          )}
         </div>
 
         {/* Configurações de Envio */}
@@ -821,9 +700,6 @@ export default function NovaCampanhaPage() {
               <div>
                 <Label className="text-sm font-medium text-gray-500">Template</Label>
                 <p className="text-base font-medium">{templateSelecionado?.nome}</p>
-                <Badge variant="outline" className="mt-1">
-                  {templateSelecionado?.categoria}
-                </Badge>
               </div>
             </CardContent>
           </Card>
@@ -836,10 +712,7 @@ export default function NovaCampanhaPage() {
             <CardContent className="space-y-4">
               <div>
                 <Label className="text-sm font-medium text-gray-500">Instância WhatsApp</Label>
-                <p className="text-base font-medium">{instanciaSelecionada?.nome}</p>
-                <Badge className="mt-1 bg-green-100 text-green-800 border-green-200">
-                  {instanciaSelecionada?.statusTexto}
-                </Badge>
+                <p className="text-base font-medium">{instanciaSelecionada?.instance_name}</p>
               </div>
               <div>
                 <Label className="text-sm font-medium text-gray-500">Destinatários</Label>
@@ -872,7 +745,7 @@ export default function NovaCampanhaPage() {
           <CardContent>
             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg border">
               <div className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-                {templateSelecionado?.preview || templateSelecionado?.conteudo}
+                {templateSelecionado?.mensagem}
               </div>
             </div>
           </CardContent>
@@ -884,8 +757,8 @@ export default function NovaCampanhaPage() {
   function getDescricaoFiltro(key: string): string {
     const descricoes: { [key: string]: string } = {
       'todos': 'Todos os clientes cadastrados',
-      'ativos': 'Clientes com status ativo',
-      'inativos': 'Clientes com status inativo', 
+      'ativo': 'Clientes com status ativo',
+      'inativo': 'Clientes com status inativo', 
       'vencidos': 'Clientes com vencimento passado',
       'proximos_vencimento': 'Vencimento nos próximos 7 dias'
     }
@@ -894,10 +767,8 @@ export default function NovaCampanhaPage() {
 
   function getFiltroDescricao(filtro: string): string {
     if (filtro.startsWith('plano-')) {
-      const planoFiltro = filtrosClientes.por_plano?.find((p: any) => 
-        `plano-${p.id}` === filtro
-      )
-      return planoFiltro?.nome || 'Filtro por plano'
+      const plano = planos.find(p => p.id === parseInt(filtro.split('-')[1]))
+      return plano?.nome || 'Filtro por plano'
     }
     return getDescricaoFiltro(filtro)
   }
