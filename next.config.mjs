@@ -9,6 +9,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    serverActions: true,
+  },
+  metadata: {
+    viewportExport: true
+  }
 }
 
 export default nextConfig

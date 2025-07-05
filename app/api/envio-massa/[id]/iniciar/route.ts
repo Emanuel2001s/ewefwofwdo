@@ -68,6 +68,13 @@ export async function POST(
       }, { status: 400 })
     }
 
+    // Verificar se o template existe
+    if (!campanhaData.template_conteudo) {
+      return NextResponse.json({ 
+        error: "Template de mensagem não encontrado" 
+      }, { status: 400 })
+    }
+
     // Verificar se existem detalhes de envio
     const detalhes = await executeQuery(`
       SELECT COUNT(*) as total 
@@ -79,7 +86,19 @@ export async function POST(
 
     // Se não existem detalhes, criar agora
     if (totalDetalhes === 0) {
-      await criarDetalhesEnvio(campanhaId, JSON.parse(campanhaData.filtro_clientes))
+      try {
+        // Garantir que o filtro_clientes seja um JSON válido
+        const filtrosJson = typeof campanhaData.filtro_clientes === 'string' 
+          ? JSON.parse(campanhaData.filtro_clientes)
+          : campanhaData.filtro_clientes
+
+        await criarDetalhesEnvio(campanhaId, filtrosJson)
+      } catch (error) {
+        console.error("Erro ao criar detalhes de envio:", error)
+        return NextResponse.json({ 
+          error: "Erro ao processar filtros de clientes" 
+        }, { status: 400 })
+      }
     }
 
     // Atualizar status da campanha para "enviando"
@@ -98,6 +117,14 @@ export async function POST(
       // Processar em background
       processarEnviosImediatos(campanhaData).catch(error => {
         console.error(`❌ Erro no processamento imediato da campanha ${campanhaId}:`, error)
+        // Em caso de erro, marcar a campanha como erro
+        executeQuery(`
+          UPDATE campanhas_envio_massa 
+          SET 
+            status = 'erro',
+            erro_detalhes = ?
+          WHERE id = ?
+        `, [String(error), campanhaId]).catch(console.error)
       })
     }
 
@@ -143,6 +170,15 @@ async function criarDetalhesEnvio(campanhaId: number, filtro: any): Promise<void
   if (filtro.plano_id) {
     whereClause += " AND plano_id = ?"
     params.push(filtro.plano_id)
+  }
+
+  // Verificar se existem clientes que atendem aos filtros
+  const clientesCount = await executeQuery(`
+    SELECT COUNT(*) as total FROM clientes ${whereClause}
+  `, params) as any[]
+
+  if (!clientesCount || !clientesCount[0] || clientesCount[0].total === 0) {
+    throw new Error("Nenhum cliente encontrado com os filtros selecionados")
   }
 
   const clientes = await executeQuery(`
@@ -198,6 +234,10 @@ async function processarEnviosImediatos(campanha: any) {
 
       for (const envio of envios) {
         try {
+          if (!envio.cliente_telefone) {
+            throw new Error(`Cliente ${envio.cliente_nome} não possui número de WhatsApp cadastrado`)
+          }
+
           // Personalizar mensagem
           const mensagem = personalizarMensagem(
             campanha.template_conteudo,
@@ -270,7 +310,14 @@ async function processarEnviosImediatos(campanha: any) {
     }
   } catch (error) {
     console.error(`❌ Erro no processamento da campanha ${campanha.id}:`, error)
-    // Não marcar como erro para permitir que o cron tente novamente
+    // Marcar campanha como erro
+    await executeQuery(`
+      UPDATE campanhas_envio_massa 
+      SET 
+        status = 'erro',
+        erro_detalhes = ?
+      WHERE id = ?
+    `, [String(error), campanha.id])
   }
 }
 
