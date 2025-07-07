@@ -1,5 +1,8 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import { getConfiguracao } from './configuracoes'
+import { formatPhoneNumberForEvolution } from './phone-utils'
+
+type MessageStatus = 'pendente' | 'enviado' | 'lido' | 'falha'
 
 // Tipos para a Evolution API
 export interface EvolutionInstance {
@@ -408,7 +411,14 @@ class EvolutionAPIService {
   }
 
   /**
-   * Envia mensagem de texto
+   * Formata número de telefone para o padrão da Evolution API
+   */
+  private formatPhoneNumber(number: string): string {
+    return formatPhoneNumberForEvolution(number)
+  }
+
+  /**
+   * Envia uma mensagem de texto
    */
   async sendTextMessage(
     instanceName: string, 
@@ -417,9 +427,9 @@ class EvolutionAPIService {
   ): Promise<SendMessageResponse> {
     try {
       const client = await this.initializeClient()
-      
-      // Garantir que o número está no formato correto
       const formattedNumber = this.formatPhoneNumber(number)
+      
+      console.log(`Enviando mensagem para ${formattedNumber}`)
       
       const response = await client.post(`/message/sendText/${instanceName}`, {
         number: formattedNumber,
@@ -428,8 +438,63 @@ class EvolutionAPIService {
       
       return response.data
     } catch (error: any) {
-      console.error('Erro ao enviar mensagem de texto:', error)
+      console.error('Erro ao enviar mensagem:', error)
       throw new Error(error.response?.data?.message || 'Falha ao enviar mensagem')
+    }
+  }
+
+  /**
+   * Verifica o status de uma mensagem enviada
+   */
+  async checkMessageStatus(
+    instanceName: string,
+    messageId: string,
+    number: string
+  ): Promise<MessageStatus> {
+    try {
+      const client = await this.initializeClient()
+      const formattedNumber = this.formatPhoneNumber(number)
+      
+      console.log(`Verificando status da mensagem ${messageId} para ${formattedNumber}`)
+      
+      const response = await client.get(`/message/getStatus/${instanceName}`, {
+        params: {
+          key: messageId,
+          remoteJid: `${formattedNumber}@s.whatsapp.net`
+        }
+      })
+      
+      console.log(`Status retornado para ${formattedNumber}:`, response.data)
+      
+      // Verificar se a resposta é um objeto e tem a propriedade status
+      if (!response.data || typeof response.data !== 'object') {
+        throw new Error('Resposta inválida da API')
+      }
+
+      const status = String(response.data.status || '').toLowerCase()
+      
+      // Mapear status da Evolution API para nossos status
+      switch (status) {
+        case 'sent':
+        case 'delivered':
+          return 'enviado'
+        case 'read':
+          return 'lido'
+        case 'failed':
+        case 'error':
+          return 'falha'
+        default:
+          return 'pendente'
+      }
+    } catch (error: any) {
+      console.error('Erro ao verificar status da mensagem:', {
+        instanceName,
+        messageId,
+        number,
+        error: error.message,
+        response: error.response?.data
+      })
+      throw new Error(error.response?.data?.message || 'Falha ao verificar status da mensagem')
     }
   }
 
@@ -487,31 +552,6 @@ class EvolutionAPIService {
       console.error('Erro ao configurar webhook:', error)
       throw new Error(error.response?.data?.message || 'Falha ao configurar webhook')
     }
-  }
-
-  /**
-   * Formata número de telefone para o padrão da Evolution API
-   */
-  private formatPhoneNumber(number: string): string {
-    // Remove todos os caracteres não numéricos
-    let cleaned = number.replace(/\D/g, '')
-    
-    // Se começar com 0, remove
-    if (cleaned.startsWith('0')) {
-      cleaned = cleaned.substring(1)
-    }
-    
-    // Se não começar com código do país, adiciona o Brasil (55)
-    if (!cleaned.startsWith('55')) {
-      cleaned = '55' + cleaned
-    }
-    
-    // Adiciona @s.whatsapp.net se não tiver
-    if (!cleaned.includes('@')) {
-      cleaned = cleaned + '@s.whatsapp.net'
-    }
-    
-    return cleaned
   }
 
   /**

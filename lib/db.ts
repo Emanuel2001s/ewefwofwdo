@@ -21,7 +21,9 @@ const dbConfig: mysql.PoolOptions = {
   waitForConnections: true,
   idleTimeout: 60000, // 1 minuto
   multipleStatements: false,
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  timezone: '-03:00', // Configuração para horário de Brasília
+  dateStrings: true // Força o MySQL a retornar datas como strings no formato YYYY-MM-DD HH:mm:ss
 }
 
 // Função para obter o pool de conexões (Singleton Pattern)
@@ -37,6 +39,8 @@ function getPool(): mysql.Pool {
     // Configurar eventos do pool para monitoramento
     pool.on('connection', (connection) => {
       console.log(`🔌 Nova conexão MySQL estabelecida com ID ${connection.threadId}`);
+      // Configurar timezone para cada nova conexão
+      connection.query("SET time_zone='-03:00';");
     });
     
     pool.on('release', (connection) => {
@@ -77,6 +81,21 @@ export async function executeQuery(
   params: any[] = [],
   noCache: boolean = false
 ) {
+  // Validar parâmetros
+  if (!query?.trim()) {
+    throw new Error("Query não pode ser vazia")
+  }
+
+  if (!Array.isArray(params)) {
+    throw new Error("Parâmetros devem ser um array")
+  }
+
+  // Verificar se há parâmetros undefined
+  if (params.some(param => param === undefined)) {
+    console.error("❌ Parâmetros da query contêm undefined:", params)
+    throw new Error("Parâmetros da query não podem conter undefined")
+  }
+
   const cacheKey = `${query}_${JSON.stringify(params)}`
 
   // Verifica o cache primeiro, a menos que noCache seja true
@@ -93,6 +112,10 @@ export async function executeQuery(
   let connection: mysql.PoolConnection | null = null
   try {
     connection = await pool.getConnection();
+    
+    console.log("📝 Executando query:", query)
+    console.log("📝 Parâmetros:", params)
+    
     const [rows] = await connection.execute(query, params);
 
     // Armazenar no cache apenas queries SELECT
@@ -118,9 +141,21 @@ export async function executeQuery(
     } else {
       return rows as OkPacket
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Erro ao executar query:", error)
-    throw new Error("Falha ao executar operação no banco de dados")
+    console.error("Query:", query)
+    console.error("Parâmetros:", params)
+    console.error("Stack trace:", error.stack)
+    
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      throw new Error("Violação de chave estrangeira - registro referenciado não existe")
+    } else if (error.code === 'ER_DUP_ENTRY') {
+      throw new Error("Registro duplicado - já existe um registro com esses dados")
+    } else if (error.code === 'ER_BAD_NULL_ERROR') {
+      throw new Error("Campo obrigatório não pode ser nulo")
+    } else {
+      throw new Error(`Erro ao executar operação no banco de dados: ${error.message}`)
+    }
   } finally {
     if (connection) {
       connection.release();

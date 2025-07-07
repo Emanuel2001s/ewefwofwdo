@@ -83,10 +83,22 @@ export async function GET(
       ? Math.round((totalProcessados / campanhaData.total_clientes) * 100)
       : 0
 
-    // Calcular taxa de sucesso
-    const taxaSucesso = totalProcessados > 0
-      ? Math.round(((stats.enviado + stats.entregue + stats.lido) / totalProcessados) * 100)
+    // Calcular taxa de sucesso - Corrigido para considerar apenas mensagens realmente enviadas
+    const sucessos = stats.enviado + stats.entregue + stats.lido
+    const falhas = stats.erro
+    const taxaSucesso = (sucessos + falhas) > 0
+      ? Math.round((sucessos / (sucessos + falhas)) * 100)
       : 0
+
+    // Atualizar contadores na tabela de campanhas
+    await executeQuery(`
+      UPDATE campanhas_envio_massa
+      SET
+        enviados = ?,
+        sucessos = ?,
+        falhas = ?
+      WHERE id = ?
+    `, [totalProcessados, sucessos, falhas, campanhaId])
 
     // Estimar tempo restante (se estiver enviando)
     let tempoEstimado = null

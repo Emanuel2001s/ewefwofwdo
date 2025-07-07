@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const templatesFormatados = (templates || []).map((template: any) => ({
       id: template.id,
       nome: template.nome,
-      conteudo: template.conteudo,
+      mensagem: template.conteudo,
       categoria: template.categoria || 'Geral',
       message_type: template.message_type,
       assunto: template.assunto,

@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
           SELECT 
             emd.id,
             emd.cliente_id,
+            emd.whatsapp as cliente_telefone,
             c.nome as cliente_nome,
-            c.whatsapp as cliente_telefone,
             c.data_vencimento,
             p.nome as plano_nome
           FROM envios_massa_detalhes emd
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
               UPDATE envios_massa_detalhes 
               SET 
                 status = 'erro',
-                erro_detalhes = ?,
+                erro_mensagem = ?,
                 tentativas = tentativas + 1
               WHERE id = ?
             `, [String(error), envio.id])

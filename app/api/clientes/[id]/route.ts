@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { executeQuery } from "@/lib/db";
 import { getAuthUser, hashPassword } from "@/lib/auth";
 import { OkPacket, RowDataPacket } from "mysql2";
+import { formatPhoneNumber } from "@/lib/phone-utils";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -39,12 +40,16 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const { id } = params;
     const { nome, whatsapp, data_vencimento, data_ativacao, plano_id, servidor_id, observacoes, dispositivos, status, usuarioLogin, senhaLogin } = await request.json();
 
-    // Processar WhatsApp - adicionar código 55 se não tiver
+    // Processar WhatsApp se fornecido
     let whatsappProcessado = whatsapp;
     if (whatsapp !== undefined) {
-      whatsappProcessado = whatsapp.replace(/\D/g, ''); // Remove tudo que não for número
-      if (whatsappProcessado.length === 11 && !whatsappProcessado.startsWith('55')) {
-        whatsappProcessado = '55' + whatsappProcessado;
+      try {
+        whatsappProcessado = formatPhoneNumber(whatsapp);
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : "Erro ao formatar número de WhatsApp" },
+          { status: 400 }
+        );
       }
     }
 
@@ -123,16 +128,41 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     const { id } = params;
 
-    // Deletar o cliente
+    // Verificar se o cliente existe antes de tentar excluir
+    const clienteExistente = (await executeQuery("SELECT id FROM clientes WHERE id = ?", [id])) as RowDataPacket[];
+    
+    if (clienteExistente.length === 0) {
+      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+    }
+
+    // Primeiro, excluir registros relacionados na tabela envios_massa_detalhes
+    // para evitar problemas de integridade referencial
+    try {
+      await executeQuery("DELETE FROM envios_massa_detalhes WHERE cliente_id = ?", [id]);
+      console.log(`Registros de envios em massa excluídos para cliente ${id}`);
+    } catch (error) {
+      console.log(`Nenhum registro de envio em massa encontrado para cliente ${id} ou erro ao excluir:`, error);
+      // Continua a execução mesmo se não houver registros relacionados
+    }
+
+    // Agora, deletar o cliente
     const resultCliente = (await executeQuery("DELETE FROM clientes WHERE id = ?", [id])) as OkPacket;
 
     if (resultCliente.affectedRows === 0) {
-      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Erro inesperado: cliente não foi excluído" }, { status: 500 });
     }
 
     return NextResponse.json({ message: "Cliente excluído com sucesso" }, { status: 200 });
   } catch (error) {
     console.error("Erro ao excluir cliente:", error);
+    
+    // Verificar se o erro é de integridade referencial
+    if (error instanceof Error && error.message.includes('foreign key constraint')) {
+      return NextResponse.json({ 
+        error: "Não é possível excluir este cliente pois ele possui registros relacionados no sistema" 
+      }, { status: 400 });
+    }
+    
     return NextResponse.json({ error: "Erro ao excluir cliente" }, { status: 500 });
   }
 } 

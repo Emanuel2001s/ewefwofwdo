@@ -8,6 +8,7 @@ import {
   getClienteDataForTemplate, 
   processTemplate 
 } from '@/lib/whatsapp-templates'
+import { formatPhoneNumber } from '@/lib/phone-utils'
 
 /**
  * POST - Enviar mensagem WhatsApp
@@ -96,6 +97,18 @@ export async function POST(request: NextRequest) {
       numeroWhatsApp = clienteData.whatsapp
     }
     
+    // Formatar número de telefone
+    if (numeroWhatsApp) {
+      try {
+        numeroWhatsApp = formatPhoneNumber(numeroWhatsApp)
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Erro ao formatar número de WhatsApp' },
+          { status: 400 }
+        )
+      }
+    }
+    
     let mensagemFinal = finalMensagemCustomizada || ''
     let imagemUrl: string | undefined
     let imagemCaption: string | undefined
@@ -145,6 +158,9 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Declarar historyId fora do try/catch para estar acessível em ambos os blocos
+    let historyId: number | null = null
+    
     try {
       // Registrar tentativa no histórico
       const historyInsert = await executeQuery(`
@@ -169,7 +185,7 @@ export async function POST(request: NextRequest) {
         imagemUrl || null
       ]) as OkPacket
       
-      const historyId = historyInsert.insertId
+      historyId = historyInsert.insertId
       
       // Enviar mensagem via Evolution API
       let sendResponse
@@ -212,18 +228,22 @@ export async function POST(request: NextRequest) {
     } catch (sendError: any) {
       console.error('Erro ao enviar mensagem:', sendError)
       
-      // Atualizar histórico com erro
+      // Atualizar histórico com erro (historyId agora está no escopo correto)
       if (historyId) {
-        await executeQuery(`
-          UPDATE message_history 
-          SET 
-            status = 'erro',
-            error_message = ?
-          WHERE id = ?
-        `, [
-          sendError.message || 'Erro ao enviar mensagem',
-          historyId
-        ])
+        try {
+          await executeQuery(`
+            UPDATE message_history 
+            SET 
+              status = 'erro',
+              error_message = ?
+            WHERE id = ?
+          `, [
+            sendError.message || 'Erro ao enviar mensagem',
+            historyId
+          ])
+        } catch (updateError) {
+          console.error('Erro ao atualizar histórico:', updateError)
+        }
       }
       
       return NextResponse.json(

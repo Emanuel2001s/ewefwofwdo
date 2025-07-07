@@ -36,9 +36,17 @@ interface ProcessamentoResult {
 // Motor básico de envio em massa
 export async function POST(request: NextRequest) {
   try {
+    // Verificar se é chamada do cron
+    const cronSecret = request.headers.get('x-cron-secret')
+    if (cronSecret && cronSecret === process.env.CRON_SECRET) {
+      // Autenticação via cron secret
+      console.log('Chamada autenticada via cron secret')
+    } else {
+      // Autenticação via usuário admin
     const user = await requireAuth("admin")
     if (!user || user.tipo !== "admin") {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+      }
     }
 
     // Buscar campanhas que estão em status "enviando"
@@ -94,8 +102,8 @@ export async function POST(request: NextRequest) {
           SELECT 
             emd.id,
             emd.cliente_id,
+            emd.whatsapp as cliente_telefone,
             c.nome as cliente_nome,
-            c.whatsapp as cliente_telefone,
             c.data_vencimento,
             p.nome as plano_nome
           FROM envios_massa_detalhes emd

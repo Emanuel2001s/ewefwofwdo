@@ -32,7 +32,7 @@ import { Separator } from "@/components/ui/separator"
 type Template = {
   id: number
   nome: string
-  conteudo: string
+  mensagem: string
   message_type: string
 }
 
@@ -342,10 +342,47 @@ export default function NovaCampanhaPage() {
   }
 
   const criarCampanha = async () => {
-    if (!validarEtapaAtual()) {
+    // Validar dados obrigatórios
+    if (!campanha.nome?.trim()) {
       toast({
         title: "Erro",
-        description: "Por favor, preencha todos os campos obrigatórios corretamente.",
+        description: "Nome da campanha é obrigatório",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!campanha.template_id) {
+      toast({
+        title: "Erro",
+        description: "Selecione um template",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!campanha.instancia_id) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma instância",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!filtroSelecionado) {
+      toast({
+        title: "Erro",
+        description: "Selecione um filtro de clientes",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!campanha.intervalo_segundos || campanha.intervalo_segundos < 1) {
+      toast({
+        title: "Erro",
+        description: "Intervalo entre mensagens deve ser maior que 0",
         variant: "destructive"
       })
       return
@@ -353,34 +390,75 @@ export default function NovaCampanhaPage() {
 
     setCriandoCampanha(true)
     try {
+      // Preparar dados da campanha
+      const dadosCampanha = {
+        nome: campanha.nome.trim(),
+        template_id: campanha.template_id,
+        instancia_id: campanha.instancia_id,
+        filtro_clientes: getFiltroClientes(filtroSelecionado),
+        intervalo_segundos: campanha.intervalo_segundos,
+        data_agendamento: campanha.data_agendamento || null,
+        descricao: campanha.descricao?.trim() || null
+      }
+
       const response = await fetch('/api/envio-massa', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(campanha)
+        body: JSON.stringify(dadosCampanha)
       })
 
-      const data = await response.json()
+      let errorData
+      try {
+        errorData = await response.json()
+      } catch (e) {
+        throw new Error('Erro ao processar resposta do servidor')
+      }
 
-      if (data.success) {
+      if (!response.ok) {
+        throw new Error(errorData.error || 'Erro ao criar campanha')
+      }
+
+      if (errorData.success) {
         toast({
           title: "Sucesso",
-          description: data.message
+          description: errorData.message
         })
         router.push('/admin/envio-massa')
       } else {
-        throw new Error(data.error || 'Erro ao criar campanha')
+        throw new Error(errorData.error || 'Erro ao criar campanha')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar campanha:', error)
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Erro ao criar campanha",
+        description: error.message || "Erro ao criar campanha",
         variant: "destructive"
       })
     } finally {
       setCriandoCampanha(false)
+    }
+  }
+
+  const getFiltroClientes = (filtro: string) => {
+    if (filtro.startsWith('plano-')) {
+      return {
+        plano_id: parseInt(filtro.split('-')[1])
+      }
+    }
+
+    switch (filtro) {
+      case 'ativo':
+        return { status: 'ativo' }
+      case 'inativo':
+        return { status: 'inativo' }
+      case 'vencidos':
+        return { vencidos: true }
+      case 'proximos_vencimento':
+        return { proximos_vencimento: true }
+      default:
+        return { status: 'ativo' } // Filtro padrão
     }
   }
 
@@ -630,7 +708,7 @@ export default function NovaCampanhaPage() {
                 <div className="space-y-4">
                   <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                     <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-4">
-                      {template.conteudo}
+                      {template.mensagem}
                     </p>
                   </div>
                 </div>
@@ -887,7 +965,7 @@ export default function NovaCampanhaPage() {
       if (!templateSelecionado) return ''
       
       // Exemplo de substituição de variáveis
-      let preview = templateSelecionado.conteudo
+      let preview = templateSelecionado.mensagem
         .replace(/\{nome\}/g, 'João Silva')
         .replace(/\{plano\}/g, 'Plano Premium')
         .replace(/\{vencimento\}/g, '15/04/2024')

@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils"
 import { CustomCalendar } from "@/components/ui/custom-calendar"
 import { Eye, EyeOff, User, Phone, Calendar, CreditCard, Server, Settings, Shield, Save, ArrowLeft } from "lucide-react"
+import { formatPhoneNumberForDisplay } from "@/lib/phone-utils"
 
 interface Cliente {
   id: number
@@ -197,21 +198,7 @@ export function ClienteForm({ initialData = null, servidores, planos }: ClienteF
   }
 
   const formatarWhatsApp = (valor: string) => {
-    // Remove tudo que não for número
-    valor = valor.replace(/\D/g, "")
-
-    // Limita a 11 dígitos
-    if (valor.length > 11) {
-      valor = valor.substring(0, 11)
-    }
-
-    // Formata como (99) 99999-9999
-    if (valor.length <= 11) {
-      valor = valor.replace(/^(\d{2})(\d)/g, "($1) $2")
-      valor = valor.replace(/(\d)(\d{4})$/, "$1-$2")
-    }
-
-    return valor
+    return formatPhoneNumberForDisplay(valor)
   }
 
   const verificarUsuarioDisponivel = async (usuario: string) => {

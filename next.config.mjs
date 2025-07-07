@@ -10,10 +10,18 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverActions: true,
+    serverComponentsExternalPackages: ["mysql2"],
   },
-  metadata: {
-    viewportExport: true
+  webpack: (config) => {
+    config.externals = [...config.externals, 'mysql2']
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      net: false,
+      tls: false,
+      dns: false,
+      fs: false
+    }
+    return config
   }
 }
 

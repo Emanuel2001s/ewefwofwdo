@@ -29,29 +29,38 @@ export async function GET(request: NextRequest) {
       
       // Taxa de sucesso média
       executeQuery(`SELECT 
-         CASE 
-           WHEN SUM(enviados) > 0 
-           THEN ROUND((SUM(sucessos) / SUM(enviados)) * 100, 1)
-           ELSE 0 
-         END as taxa_sucesso_media
+         COALESCE(
+           CASE 
+             WHEN SUM(enviados) > 0 
+             THEN ROUND((SUM(sucessos) * 100.0) / SUM(enviados), 1)
+             ELSE 0 
+           END,
+           0
+         ) as taxa_sucesso_media
        FROM campanhas_envio_massa 
        WHERE status = 'concluida'`) as Promise<any[]>
     ])
 
-    // Compilar estatísticas
+    // Compilar estatísticas com valores padrão seguros
     const estatisticas = {
-      total_campanhas: totalCampanhas[0]?.total_campanhas || 0,
-      campanhas_ativas: campanhasAtivas[0]?.campanhas_ativas || 0,
-      mensagens_enviadas_hoje: mensagensHoje[0]?.mensagens_hoje || 0,
-      taxa_sucesso_media: taxaSucesso[0]?.taxa_sucesso_media || 0
+      total_campanhas: Number(totalCampanhas[0]?.total_campanhas || 0),
+      campanhas_ativas: Number(campanhasAtivas[0]?.campanhas_ativas || 0),
+      mensagens_enviadas_hoje: Number(mensagensHoje[0]?.mensagens_hoje || 0),
+      taxa_sucesso_media: Number(taxaSucesso[0]?.taxa_sucesso_media || 0)
     }
 
-    return NextResponse.json(estatisticas)
+    return NextResponse.json({
+      success: true,
+      data: estatisticas
+    })
 
   } catch (error) {
     console.error("Erro ao buscar estatísticas:", error)
     return NextResponse.json(
-      { error: "Erro interno do servidor" },
+      { 
+        success: false,
+        error: "Erro interno do servidor" 
+      },
       { status: 500 }
     )
   }

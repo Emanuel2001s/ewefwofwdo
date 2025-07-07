@@ -10,7 +10,7 @@ export interface MessageTemplate {
   tipo: 'vencimento' | 'pagamento' | 'boas_vindas' | 'manutencao' | 'personalizada'
   message_type: 'texto' | 'imagem'
   assunto?: string
-  conteudo: string
+  mensagem: string
   imagem_url?: string
   imagem_caption?: string
   ativo: boolean
@@ -41,7 +41,7 @@ export async function processTemplate(
   const variables = await buildTemplateVariables(cliente)
   
   // Processar texto principal
-  const texto = replaceVariables(template.conteudo, variables)
+  const texto = replaceVariables(template.mensagem, variables)
   
   // Processar caption da imagem se existir
   let imagemCaption: string | undefined
@@ -108,8 +108,11 @@ function replaceVariables(text: string, variables: Record<string, string>): stri
   // Substituir todas as variáveis {variavel}
   for (const [key, value] of Object.entries(variables)) {
     const regex = new RegExp(`\\{${key}\\}`, 'g')
-    processedText = processedText.replace(regex, value)
+    processedText = processedText.replace(regex, value || '')
   }
+  
+  // Remover quaisquer variáveis não substituídas
+  processedText = processedText.replace(/\{[^}]+\}/g, '')
   
   return processedText
 }
@@ -227,15 +230,15 @@ export async function getClienteDataForTemplate(clienteId: number): Promise<Clie
     const result = await executeQuery(`
       SELECT 
         c.id,
-        c.nome,
-        c.whatsapp,
-        c.usuario,
-        c.status,
-        c.data_vencimento,
-        c.data_ativacao,
-        p.nome as plano,
-        p.valor as valor_plano,
-        s.nome as servidor
+        COALESCE(c.nome, '') as nome,
+        COALESCE(c.whatsapp, '') as whatsapp,
+        COALESCE(c.usuario, '') as usuario,
+        COALESCE(c.status, '') as status,
+        COALESCE(c.data_vencimento, NOW()) as data_vencimento,
+        COALESCE(c.data_ativacao, NOW()) as data_ativacao,
+        COALESCE(p.nome, '') as plano,
+        COALESCE(p.valor, 0) as valor_plano,
+        COALESCE(s.nome, '') as servidor
       FROM clientes c
       LEFT JOIN planos p ON c.plano_id = p.id
       LEFT JOIN servidores s ON c.servidor_id = s.id
@@ -322,7 +325,7 @@ export async function previewTemplate(template: MessageTemplate): Promise<{ text
     'ano_atual': format(new Date(), 'yyyy', { locale: ptBR })
   }
   
-  const texto = replaceVariables(template.conteudo, variables)
+  const texto = replaceVariables(template.mensagem, variables)
   let imagemCaption: string | undefined
   
   if (template.message_type === 'imagem' && template.imagem_caption) {

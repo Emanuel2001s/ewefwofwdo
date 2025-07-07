@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Send, Clock, CheckCircle, XCircle, Users, MessageCircle, TrendingUp, Play, Pause, Trash2 } from "lucide-react"
+import { Plus, Send, Clock, CheckCircle, XCircle, Users, MessageCircle, TrendingUp, Play, Pause, Trash2, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
@@ -13,12 +13,22 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 interface CampanhaResumo {
   id: number
   nome: string
-  status: string
+  status: 'rascunho' | 'agendada' | 'enviando' | 'pausada' | 'concluida' | 'cancelada' | 'erro'
   total_clientes: number
   enviados: number
   sucessos: number
   falhas: number
   data_criacao: string
+  template_nome: string
+  instancia_nome: string
+  data_inicio: string | null
+  data_agendamento: string | null
+  data_conclusao: string | null
+  template_id: number
+  instancia_id: number
+  filtro_clientes: string
+  intervalo_segundos: number
+  descricao: string | null
 }
 
 interface Estatisticas {
@@ -39,33 +49,81 @@ export default function EnvioMassaPage() {
     taxa_sucesso_media: 0
   })
   const [loading, setLoading] = useState(true)
+  const [atualizando, setAtualizando] = useState(false)
+  const [intervaloAtualizacao, setIntervaloAtualizacao] = useState(30000) // 30 segundos padrão
+
+  const carregarDados = useCallback(async (silencioso = false) => {
+    if (!silencioso) {
+      setAtualizando(true)
+    }
+    
+    try {
+      const [resCampanhas, resStats] = await Promise.all([
+        fetch('/api/envio-massa'),
+        fetch('/api/envio-massa/estatisticas')
+      ])
+
+      const [campanhasData, statsData] = await Promise.all([
+        resCampanhas.json(),
+        resStats.json()
+      ])
+
+      if (!campanhasData.success) {
+        throw new Error(campanhasData.error || 'Erro ao carregar campanhas')
+      }
+
+      if (!statsData.success) {
+        throw new Error(statsData.error || 'Erro ao carregar estatísticas')
+      }
+
+      setCampanhas(campanhasData.data || [])
+      setEstatisticas({
+        total_campanhas: statsData.data?.total_campanhas || 0,
+        campanhas_ativas: statsData.data?.campanhas_ativas || 0,
+        mensagens_enviadas_hoje: statsData.data?.mensagens_enviadas_hoje || 0,
+        taxa_sucesso_media: statsData.data?.taxa_sucesso_media || 0
+      })
+
+      // Ajusta o intervalo baseado na existência de campanhas ativas
+      const temCampanhasAtivas = campanhasData.data?.some(
+        (campanha: CampanhaResumo) => campanha.status === 'enviando'
+      )
+      setIntervaloAtualizacao(temCampanhasAtivas ? 10000 : 30000) // 10s se tiver ativas, 30s se não
+
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+      if (!silencioso) {
+        toast({
+          title: "Erro",
+          description: error instanceof Error ? error.message : "Erro ao carregar dados",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setLoading(false)
+      setAtualizando(false)
+    }
+  }, [toast])
 
   useEffect(() => {
     carregarDados()
-  }, [])
+    
+    let intervalId: NodeJS.Timeout
 
-  const carregarDados = async () => {
-    try {
-      // Carregar campanhas recentes
-      const resCampanhas = await fetch('/api/envio-massa')
-      const campanhasData = await resCampanhas.json()
-      setCampanhas(campanhasData.campanhas || [])
-
-      // Carregar estatísticas
-      const resStats = await fetch('/api/envio-massa/estatisticas')
-      const statsData = await resStats.json()
-      setEstatisticas(statsData || {
-        total_campanhas: 0,
-        campanhas_ativas: 0,
-        mensagens_enviadas_hoje: 0,
-        taxa_sucesso_media: 0
-      })
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error)
-    } finally {
-      setLoading(false)
+    const iniciarAtualizacao = () => {
+      intervalId = setInterval(() => {
+        carregarDados(true) // Atualização silenciosa
+      }, intervaloAtualizacao)
     }
-  }
+
+    iniciarAtualizacao()
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
+  }, [carregarDados, intervaloAtualizacao])
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -105,7 +163,8 @@ export default function EnvioMassaPage() {
           title: "Campanha Iniciada!",
           description: `Envio iniciado para ${data.total_clientes} cliente(s)`,
         })
-        carregarDados() // Recarregar dados
+        await carregarDados() // Aguardar o carregamento dos dados
+        router.refresh() // Forçar atualização da página
       } else {
         throw new Error(data.error || 'Erro ao iniciar campanha')
       }
@@ -116,6 +175,7 @@ export default function EnvioMassaPage() {
         description: "Erro ao iniciar campanha",
         variant: "destructive"
       })
+      router.refresh() // Atualizar mesmo em caso de erro
     }
   }
 
@@ -134,7 +194,8 @@ export default function EnvioMassaPage() {
           title: "Campanha Pausada",
           description: "A campanha foi pausada com sucesso",
         })
-        carregarDados()
+        await carregarDados()
+        router.refresh()
       } else {
         throw new Error(data.error || 'Erro ao pausar campanha')
       }
@@ -145,6 +206,7 @@ export default function EnvioMassaPage() {
         description: "Erro ao pausar campanha",
         variant: "destructive"
       })
+      router.refresh()
     }
   }
 
@@ -163,7 +225,8 @@ export default function EnvioMassaPage() {
           title: "Campanha Retomada",
           description: "A campanha foi retomada com sucesso",
         })
-        carregarDados()
+        await carregarDados()
+        router.refresh()
       } else {
         throw new Error(data.error || 'Erro ao retomar campanha')
       }
@@ -174,6 +237,7 @@ export default function EnvioMassaPage() {
         description: "Erro ao retomar campanha",
         variant: "destructive"
       })
+      router.refresh()
     }
   }
 
@@ -183,17 +247,17 @@ export default function EnvioMassaPage() {
         method: 'DELETE'
       })
 
-      if (response.ok) {
+      const data = await response.json()
+
+      if (response.ok && data.success) {
         toast({
           title: "Campanha Excluída",
-          description: "A campanha foi excluída com sucesso",
+          description: data.message || "A campanha foi excluída com sucesso",
         })
-        carregarDados()
+        await carregarDados()
       } else {
-        const errorData = await response.json()
-        
         // Tratar casos específicos
-        if (response.status === 400 && errorData.error?.includes('em andamento')) {
+        if (response.status === 400 && data.error?.includes('em andamento')) {
           toast({
             title: "Campanha não pode ser excluída",
             description: "Não é possível excluir uma campanha que está sendo enviada. Pause-a primeiro.",
@@ -208,7 +272,7 @@ export default function EnvioMassaPage() {
         } else {
           toast({
             title: "Erro ao Excluir Campanha",
-            description: errorData.error || "Erro interno do servidor",
+            description: data.error || "Erro interno do servidor",
             variant: "destructive"
           })
         }
@@ -250,222 +314,166 @@ export default function EnvioMassaPage() {
   }
 
   return (
-    <div className="space-y-6 md:space-y-8 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-        <div className="space-y-3">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Envio em Massa</h1>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Gerencie campanhas de WhatsApp para seus clientes
-          </p>
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="w-full sm:w-auto">
+          <h1 className="text-2xl font-bold">Envio em Massa</h1>
+          <p className="text-xs md:text-sm text-gray-400">Gerencie campanhas de WhatsApp para seus clientes</p>
         </div>
-        
-        <Button onClick={() => router.push("/admin/envio-massa/nova-campanha")}>
-          <Plus className="h-5 w-5 mr-3" />
-          Nova Campanha
-        </Button>
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => carregarDados()}
+            disabled={atualizando}
+          >
+            <RefreshCw className={`w-4 h-4 ${atualizando ? 'animate-spin' : ''}`} />
+          </Button>
+          <Link href="/admin/envio-massa/nova-campanha">
+            <Button className="w-full sm:w-auto">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Campanha
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">
-          <CardContent className="p-6 md:p-8">
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Total de Campanhas</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total de Campanhas</p>
-                <p className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-100">
-                  {estatisticas.total_campanhas}
-                </p>
-              </div>
-              <div className="p-4 bg-blue-500 rounded-full">
-                <MessageCircle className="h-7 w-7 text-white" />
-              </div>
+              <div className="text-2xl font-bold">{estatisticas.total_campanhas}</div>
+              <MessageCircle className="w-8 h-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800">
-          <CardContent className="p-6 md:p-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Campanhas Ativas</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-green-600 dark:text-green-400">Campanhas Ativas</p>
-                <p className="text-2xl md:text-3xl font-bold text-green-900 dark:text-green-100">
-                  {estatisticas.campanhas_ativas}
-                </p>
-              </div>
-              <div className="p-4 bg-green-500 rounded-full">
-                <Send className="h-7 w-7 text-white" />
-              </div>
+              <div className="text-2xl font-bold">{estatisticas.campanhas_ativas}</div>
+              <Send className="w-8 h-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800">
-          <CardContent className="p-6 md:p-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Enviadas Hoje</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Enviadas Hoje</p>
-                <p className="text-2xl md:text-3xl font-bold text-purple-900 dark:text-purple-100">
-                  {estatisticas.mensagens_enviadas_hoje}
-                </p>
-              </div>
-              <div className="p-4 bg-purple-500 rounded-full">
-                <Users className="h-7 w-7 text-white" />
-              </div>
+              <div className="text-2xl font-bold">{estatisticas.mensagens_enviadas_hoje}</div>
+              <Clock className="w-8 h-8 text-purple-500" />
             </div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800">
-          <CardContent className="p-6 md:p-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Taxa de Sucesso</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Taxa de Sucesso</p>
-                <p className="text-2xl md:text-3xl font-bold text-orange-900 dark:text-orange-100">
-                  {estatisticas.taxa_sucesso_media}%
-                </p>
+              <div className="text-2xl font-bold">
+                {typeof estatisticas.taxa_sucesso_media === 'number' 
+                  ? estatisticas.taxa_sucesso_media.toFixed(1) 
+                  : '0.0'}%
               </div>
-              <div className="p-4 bg-orange-500 rounded-full">
-                <TrendingUp className="h-7 w-7 text-white" />
-              </div>
+              <TrendingUp className="w-8 h-8 text-orange-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Lista de Campanhas Recentes */}
+      {/* Campanhas Recentes */}
       <Card>
-        <CardHeader className="space-y-3">
-          <CardTitle className="text-2xl">Campanhas Recentes</CardTitle>
-          <CardDescription className="text-base">
-            Últimas campanhas de envio em massa criadas
-          </CardDescription>
+        <CardHeader>
+          <CardTitle>Campanhas Recentes</CardTitle>
+          <CardDescription>Últimas campanhas de envio em massa criadas</CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
-          {campanhas.length === 0 ? (
-            <div className="text-center py-16 space-y-6">
-              <MessageCircle className="h-16 w-16 text-gray-400 mx-auto" />
-              <div className="space-y-4">
-                <h3 className="text-xl font-medium text-gray-900 dark:text-white">
-                  Nenhuma campanha criada
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 text-lg max-w-md mx-auto">
-                  Comece criando sua primeira campanha de envio em massa
-                </p>
-              </div>
-              <Button onClick={() => router.push("/admin/envio-massa/nova-campanha")}>
-                Criar Nova Campanha
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {campanhas.map((campanha) => (
-                <div key={campanha.id} className="flex items-center justify-between p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="flex-1 space-y-4">
-                    <div className="flex items-center gap-4">
-                      <h4 className="font-medium text-gray-900 dark:text-white text-lg">
-                        {campanha.nome}
-                      </h4>
+        <CardContent>
+          <div className="space-y-4">
+            {campanhas.map((campanha) => (
+              <div key={campanha.id} className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="space-y-1 w-full">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                      <h3 className="font-medium">{campanha.nome}</h3>
                       {getStatusBadge(campanha.status)}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        <span>{campanha.total_clientes} clientes</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Send className="h-5 w-5" />
-                        <span>{campanha.enviados} enviados</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                        <span>{campanha.sucessos} sucessos</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <XCircle className="h-5 w-5 text-red-500" />
-                        <span>{campanha.falhas} falhas</span>
-                      </div>
+                    <div className="text-sm text-gray-500">
+                      Template: {campanha.template_nome} | Instância: {campanha.instancia_nome}
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm mt-2">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {campanha.total_clientes} clientes
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Send className="w-4 h-4" />
+                        {campanha.enviados} enviados
+                      </span>
+                      <span className="flex items-center gap-1 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        {campanha.sucessos} sucessos
+                      </span>
+                      <span className="flex items-center gap-1 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        {campanha.falhas} falhas
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 ml-6">
-                    <div className="text-right space-y-1">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(campanha.data_criacao).toLocaleDateString('pt-BR')}
-                      </p>
-                      {campanha.enviados > 0 && (
-                        <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                          {calcularTaxaSucesso(campanha.sucessos, campanha.enviados)}% sucesso
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {/* Botões de controle baseados no status */}
-                      {campanha.status === 'rascunho' && (
-                        <Button 
-                          size="sm"
-                          onClick={() => iniciarCampanha(campanha.id)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Play className="h-3 w-3 mr-1" />
-                          Iniciar
-                        </Button>
-                      )}
-                      
-                      {campanha.status === 'enviando' && (
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          onClick={() => pausarCampanha(campanha.id)}
-                        >
-                          <Pause className="h-3 w-3 mr-1" />
-                          Pausar
-                        </Button>
-                      )}
-                      
-                      {campanha.status === 'pausada' && (
-                        <Button 
-                          size="sm"
-                          onClick={() => retomarCampanha(campanha.id)}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <Play className="h-3 w-3 mr-1" />
-                          Retomar
-                        </Button>
-                      )}
-                      
-                      <Button variant="outline" size="sm" className="px-4 py-2" onClick={() => router.push(`/admin/envio-massa/${campanha.id}`)}>
-                        Ver Detalhes
+                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto justify-end">
+                    {campanha.status === 'rascunho' && (
+                      <Button size="sm" className="w-full sm:w-auto" onClick={() => iniciarCampanha(campanha.id)}>
+                        <Play className="w-4 h-4 mr-1" />
+                        Iniciar
                       </Button>
-
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Excluir
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir Campanha</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => excluirCampanha(campanha.id)}>
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                    )}
+                    {campanha.status === 'enviando' && (
+                      <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => pausarCampanha(campanha.id)}>
+                        <Pause className="w-4 h-4 mr-1" />
+                        Pausar
+                      </Button>
+                    )}
+                    <Link href={`/admin/envio-massa/${campanha.id}`} className="w-full sm:w-auto">
+                      <Button size="sm" variant="outline" className="w-full sm:w-auto">Detalhes</Button>
+                    </Link>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="destructive" className="w-full sm:w-auto">
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Excluir
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir Campanha</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => excluirCampanha(campanha.id)}>
+                            Confirmar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+            {campanhas.length === 0 && (
+              <div className="text-center text-gray-500 py-8">Nenhuma campanha encontrada.</div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
