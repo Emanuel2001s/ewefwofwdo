@@ -7,7 +7,7 @@ export async function updateExpiredClients(): Promise<{ updated: number; message
     const result = await executeQuery(`
       UPDATE clientes 
       SET status = 'inativo' 
-      WHERE DATE(data_vencimento) < CURDATE() 
+      WHERE TIMESTAMP(data_vencimento) < CURRENT_TIMESTAMP()
       AND status = 'ativo'
     `) as OkPacket
 

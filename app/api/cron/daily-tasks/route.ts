@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateExpiredClients } from '@/lib/auto-update-clients';
+import { processarEnvioMassa } from '@/lib/auto-envio-massa';
 import { executeAutoNotifications } from '@/lib/auto-whatsapp-notifications';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,12 +16,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const results = {
-      updateExpired: null as any,
-      processAgendamentos: null as any,
-      processEnvios: null as any,
-      whatsappNotifications: null as any
-    };
+    const results: any = {};
 
     // 1. Atualizar clientes expirados
     try {
@@ -29,31 +28,19 @@ export async function GET(request: NextRequest) {
       results.updateExpired = { error: error.message };
     }
 
-    // 2. Processar agendamentos (simulado - você pode implementar a lógica específica)
+    // 2. Processar envios (simulado - você pode implementar a lógica específica)
     try {
-      console.log('📋 Executando: Processamento de agendamentos...');
-      // Aqui você pode adicionar a lógica específica de processamento de agendamentos
-      // Por exemplo, verificar campanhas agendadas para hoje
-      results.processAgendamentos = { message: 'Agendamentos processados' };
-      console.log('✅ Agendamentos processados');
-    } catch (error: any) {
-      console.error('❌ Erro ao processar agendamentos:', error);
-      results.processAgendamentos = { error: error.message };
-    }
-
-    // 3. Processar envios (simulado - você pode implementar a lógica específica)
-    try {
-      console.log('📤 Executando: Processamento de envios...');
+      console.log('📨 Executando: Processamento de envios...');
       // Aqui você pode adicionar a lógica específica de processamento de envios
       // Por exemplo, enviar mensagens pendentes
-      results.processEnvios = { message: 'Envios processados' };
+      results.processEnvios = await processarEnvioMassa();
       console.log('✅ Envios processados');
     } catch (error: any) {
       console.error('❌ Erro ao processar envios:', error);
       results.processEnvios = { error: error.message };
     }
 
-    // 4. Enviar notificações WhatsApp
+    // 3. Enviar notificações WhatsApp
     try {
       console.log('📱 Executando: Notificações WhatsApp...');
       results.whatsappNotifications = await executeAutoNotifications();

@@ -52,9 +52,9 @@ CREATE TABLE IF NOT EXISTS clientes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nome VARCHAR(100) NOT NULL,
   whatsapp VARCHAR(20),
-  data_vencimento DATE,
-  data_ativacao DATE,
-  ultima_renovacao DATE,
+  data_vencimento DATETIME,
+  data_ativacao DATETIME,
+  ultima_renovacao DATETIME,
   plano_id INT,
   servidor_id INT,
   observacoes TEXT,
@@ -76,11 +76,11 @@ SELECT
   p.valor as plano_valor,
   s.nome as servidor_nome,
   CASE 
-    WHEN c.data_vencimento < CURDATE() THEN 'vencido'
-    WHEN c.data_vencimento <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 'vence_em_breve'
+    WHEN TIMESTAMP(c.data_vencimento) < CURRENT_TIMESTAMP() THEN 'vencido'
+    WHEN TIMESTAMP(c.data_vencimento) <= DATE_ADD(CURRENT_TIMESTAMP(), INTERVAL 7 DAY) THEN 'vence_em_breve'
     ELSE 'ativo'
   END as status_vencimento,
-  DATEDIFF(c.data_vencimento, CURDATE()) as dias_para_vencimento
+  TIMESTAMPDIFF(DAY, CURRENT_TIMESTAMP(), c.data_vencimento) as dias_para_vencimento
 FROM clientes c
 LEFT JOIN planos p ON c.plano_id = p.id
 LEFT JOIN servidores s ON c.servidor_id = s.id;

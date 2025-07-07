@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/use-toast"
-import { Settings, Upload, User, Monitor, Save, Eye, EyeOff, MessageCircle, Zap, CheckCircle, XCircle, Smartphone, Plus, QrCode, RefreshCw, Trash2, Power, LogOut, Wifi, WifiOff, AlertTriangle } from "lucide-react"
+import { Settings, Upload, User, Monitor, Save, Eye, EyeOff, MessageCircle, Zap, CheckCircle, XCircle, Smartphone, Plus, QrCode, RefreshCw, Trash2, Power, LogOut, Wifi, WifiOff, AlertTriangle, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
@@ -26,6 +26,7 @@ interface Instancia {
   qr_code?: string
   created_at: string
   updated_at: string
+  is_default?: boolean
 }
 
 interface EvolutionConfig {
@@ -295,7 +296,7 @@ function WhatsAppInstancesManager({ connectionStatus }: { connectionStatus: 'idl
   }
 
   // Ações na instância
-  const handleInstanceAction = async (instanceName: string, action: 'restart' | 'logout' | 'delete' | 'connect') => {
+  const handleInstanceAction = async (instanceName: string, action: 'restart' | 'logout' | 'delete' | 'connect' | 'set_default') => {
     try {
       let response
       
@@ -303,6 +304,14 @@ function WhatsAppInstancesManager({ connectionStatus }: { connectionStatus: 'idl
         response = await fetch(`/api/evolution/instances/${instanceName}`, {
           method: 'DELETE'
         })
+      } else if (action === 'set_default') {
+        response = await fetch(`/api/evolution/instances/${instanceName}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_default' })
+        })
+        // Recarregar instâncias após definir padrão
+        await loadInstancias()
       } else {
         response = await fetch(`/api/evolution/instances/${instanceName}`, {
           method: 'PUT',
@@ -318,72 +327,21 @@ function WhatsAppInstancesManager({ connectionStatus }: { connectionStatus: 'idl
           title: "Sucesso",
           description: result.message
         })
-        
-        // Se a ação foi conectar, implementar sistema de polling para aguardar mudança de status
-        if (action === 'connect') {
-          console.log('🔄 Iniciando polling para verificar mudança de status após conexão...')
-          
-          // Atualizar lista imediatamente
+        // Para outras ações, recarregar instâncias se necessário
+        if (action !== 'set_default') {
           await loadInstancias()
-          
-          // Implementar polling inteligente para verificar mudança de status
-          let pollCount = 0
-          const maxPolls = 10 // Máximo 10 tentativas (30 segundos)
-          
-          const pollStatus = async () => {
-            try {
-              pollCount++
-              console.log(`🔍 Verificação ${pollCount}/${maxPolls} do status da instância ${instanceName}`)
-              
-              await loadInstancias()
-              
-              // Buscar a instância atual para verificar se status mudou
-              const currentInstance = instancias.find(inst => inst.instance_name === instanceName)
-              
-              if (currentInstance && (currentInstance.status === 'open' || currentInstance.status === 'conectada')) {
-                console.log('✅ Instância conectada com sucesso!')
-                
-                // Mostrar QR Code automaticamente se conectada
-          setTimeout(() => {
-            showQRCode(instanceName)
-          }, 1000)
-                
-                return // Parar polling
-              }
-              
-              // Continuar polling se ainda não conectou e não atingiu o limite
-              if (pollCount < maxPolls) {
-                setTimeout(pollStatus, 3000) // Verificar novamente em 3 segundos
-              } else {
-                console.log('⚠️ Timeout no polling - mostrando QR Code mesmo assim')
-                // Mostrar QR Code mesmo se não detectou mudança de status
-                setTimeout(() => {
-                  showQRCode(instanceName)
-                }, 500)
-              }
-            } catch (error) {
-              console.error('❌ Erro no polling de status:', error)
-            }
-          }
-          
-          // Iniciar polling após 2 segundos
-          setTimeout(pollStatus, 2000)
-        } else {
-          // Para outras ações, apenas atualizar a lista
-        await loadInstancias()
         }
       } else {
         toast({
           title: "Erro",
-          description: result.error || `Falha ao ${action === 'delete' ? 'excluir' : action === 'restart' ? 'reiniciar' : action === 'connect' ? 'conectar' : 'desconectar'} instância`,
+          description: result.error,
           variant: "destructive"
         })
       }
-    } catch (error: any) {
-      console.error(`Erro ao executar ação ${action}:`, error)
+    } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao ${action === 'delete' ? 'excluir' : action === 'restart' ? 'reiniciar' : action === 'connect' ? 'conectar' : 'desconectar'} instância`,
+        description: "Falha ao executar ação",
         variant: "destructive"
       })
     }
@@ -563,7 +521,17 @@ function WhatsAppInstancesManager({ connectionStatus }: { connectionStatus: 'idl
                   <div className="flex items-center gap-3">
                     <Smartphone className="h-5 w-5" />
                     <div>
-                      <CardTitle className="text-base">{instancia.nome}</CardTitle>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        {instancia.nome}
+                        {instancia.is_default && (
+                          <div className="flex items-center gap-1 cursor-pointer group" onClick={() => handleUnsetDefault(instancia.instance_name)} title="Remover como padrão">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 group-hover:fill-gray-200 group-hover:text-gray-200 transition" />
+                            <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
+                              Padrão para notificações
+                            </Badge>
+                          </div>
+                        )}
+                      </CardTitle>
                       <p className="text-sm opacity-90">@{instancia.instance_name}</p>
                     </div>
                   </div>
@@ -594,6 +562,18 @@ function WhatsAppInstancesManager({ connectionStatus }: { connectionStatus: 'idl
                         </Button>
                     )}
                     
+                    {!instancia.is_default && (instancia.status === 'conectada' || instancia.status === 'open') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleInstanceAction(instancia.instance_name, 'set_default')}
+                        className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                      >
+                        <Star className="h-3 w-3 mr-1" />
+                        Definir como Padrão
+                        </Button>
+                    )}
+                    
                         <Button
                           size="sm"
                           variant="outline"
@@ -604,7 +584,6 @@ function WhatsAppInstancesManager({ connectionStatus }: { connectionStatus: 'idl
                       Reiniciar
                         </Button>
                     
-                    {(instancia.status === 'conectada' || instancia.status === 'open') && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -614,7 +593,6 @@ function WhatsAppInstancesManager({ connectionStatus }: { connectionStatus: 'idl
                         <LogOut className="h-3 w-3 mr-1" />
                         Desconectar
                       </Button>
-                    )}
                     
                     <Button
                       size="sm"
@@ -1126,7 +1104,7 @@ function IndependentInstancesManager() {
   }
 
   // Ações na instância
-  const handleInstanceAction = async (instanceName: string, action: 'restart' | 'logout' | 'delete' | 'connect') => {
+  const handleInstanceAction = async (instanceName: string, action: 'restart' | 'logout' | 'delete' | 'connect' | 'set_default') => {
     try {
       let response
       
@@ -1134,6 +1112,14 @@ function IndependentInstancesManager() {
         response = await fetch(`/api/evolution/instances/${instanceName}`, {
           method: 'DELETE'
         })
+      } else if (action === 'set_default') {
+        response = await fetch(`/api/evolution/instances/${instanceName}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_default' })
+        })
+        // Recarregar instâncias após definir padrão
+        await loadInstancias()
       } else {
         response = await fetch(`/api/evolution/instances/${instanceName}`, {
           method: 'PUT',
@@ -1149,72 +1135,21 @@ function IndependentInstancesManager() {
           title: "Sucesso",
           description: result.message
         })
-        
-        // Se a ação foi conectar, implementar sistema de polling para aguardar mudança de status
-        if (action === 'connect') {
-          console.log('🔄 Iniciando polling para verificar mudança de status após conexão...')
-          
-          // Atualizar lista imediatamente
-          await loadInstancias()
-          
-          // Implementar polling inteligente para verificar mudança de status
-          let pollCount = 0
-          const maxPolls = 10 // Máximo 10 tentativas (30 segundos)
-          
-          const pollStatus = async () => {
-            try {
-              pollCount++
-              console.log(`🔍 Verificação ${pollCount}/${maxPolls} do status da instância ${instanceName}`)
-              
-              await loadInstancias()
-              
-              // Buscar a instância atual para verificar se status mudou
-              const currentInstance = instancias.find(inst => inst.instance_name === instanceName)
-              
-              if (currentInstance && (currentInstance.status === 'open' || currentInstance.status === 'conectada')) {
-                console.log('✅ Instância conectada com sucesso!')
-                
-                // Mostrar QR Code automaticamente se conectada
-          setTimeout(() => {
-            showQRCode(instanceName)
-          }, 1000)
-                
-                return // Parar polling
-              }
-              
-              // Continuar polling se ainda não conectou e não atingiu o limite
-              if (pollCount < maxPolls) {
-                setTimeout(pollStatus, 3000) // Verificar novamente em 3 segundos
-              } else {
-                console.log('⚠️ Timeout no polling - mostrando QR Code mesmo assim')
-                // Mostrar QR Code mesmo se não detectou mudança de status
-                setTimeout(() => {
-                  showQRCode(instanceName)
-                }, 500)
-              }
-            } catch (error) {
-              console.error('❌ Erro no polling de status:', error)
-            }
-          }
-          
-          // Iniciar polling após 2 segundos
-          setTimeout(pollStatus, 2000)
-        } else {
-          // Para outras ações, apenas atualizar a lista
+        // Para outras ações, recarregar instâncias se necessário
+        if (action !== 'set_default') {
           await loadInstancias()
         }
       } else {
         toast({
           title: "Erro",
-          description: result.error || `Falha ao ${action === 'delete' ? 'excluir' : action === 'restart' ? 'reiniciar' : action === 'connect' ? 'conectar' : 'desconectar'} instância`,
+          description: result.error,
           variant: "destructive"
         })
       }
-    } catch (error: any) {
-      console.error(`Erro ao executar ação ${action}:`, error)
+    } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao ${action === 'delete' ? 'excluir' : action === 'restart' ? 'reiniciar' : action === 'connect' ? 'conectar' : 'desconectar'} instância`,
+        description: "Falha ao executar ação",
         variant: "destructive"
       })
     }
@@ -1255,6 +1190,37 @@ function IndependentInstancesManager() {
       case 'connecting': return 'conectando'
       case 'creating': return 'criando'
       default: return status
+    }
+  }
+
+  // Adicionar ação para remover padrão
+  const handleUnsetDefault = async (instanceName: string) => {
+    try {
+      const response = await fetch(`/api/evolution/instances/${instanceName}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unset_default' })
+      })
+      const result = await response.json()
+      if (response.ok) {
+        toast({
+          title: "Sucesso",
+          description: "Instância removida como padrão"
+        })
+        await loadInstancias()
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || 'Erro ao remover padrão',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao remover padrão",
+        variant: 'destructive'
+      })
     }
   }
 
@@ -1406,7 +1372,17 @@ function IndependentInstancesManager() {
                   <div className="flex items-center gap-3">
                     <Smartphone className="h-5 w-5" />
                     <div>
-                      <CardTitle className="text-base">{instancia.nome}</CardTitle>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        {instancia.nome}
+                        {instancia.is_default && (
+                          <div className="flex items-center gap-1 cursor-pointer group" onClick={() => handleUnsetDefault(instancia.instance_name)} title="Remover como padrão">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 group-hover:fill-gray-200 group-hover:text-gray-200 transition" />
+                            <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
+                              Padrão para notificações
+                            </Badge>
+                          </div>
+                        )}
+                      </CardTitle>
                       <p className="text-sm opacity-90">@{instancia.instance_name}</p>
                     </div>
                   </div>
@@ -1437,6 +1413,18 @@ function IndependentInstancesManager() {
                         </Button>
                     )}
                     
+                    {!instancia.is_default && (instancia.status === 'conectada' || instancia.status === 'open') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleInstanceAction(instancia.instance_name, 'set_default')}
+                        className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                      >
+                        <Star className="h-3 w-3 mr-1" />
+                        Definir como Padrão
+                        </Button>
+                    )}
+                    
                         <Button
                           size="sm"
                           variant="outline"
@@ -1447,7 +1435,6 @@ function IndependentInstancesManager() {
                       Reiniciar
                         </Button>
                     
-                    {(instancia.status === 'conectada' || instancia.status === 'open') && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1457,7 +1444,6 @@ function IndependentInstancesManager() {
                         <LogOut className="h-3 w-3 mr-1" />
                         Desconectar
                       </Button>
-                    )}
                     
                     <Button
                       size="sm"
@@ -1648,8 +1634,8 @@ export default function ConfiguracoesPage() {
   const [uploading, setUploading] = useState<'favicon' | 'logo' | null>(null)
   
   // Configurações Evolution API
-  const [evolutionApiUrl, setEvolutionApiUrl] = useState('')
-  const [evolutionApiKey, setEvolutionApiKey] = useState('')
+  const [evolutionApiUrl, setEvolutionApiUrl] = useState("")
+  const [evolutionApiKey, setEvolutionApiKey] = useState("")
   const [testingConnection, setTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
@@ -2056,6 +2042,50 @@ export default function ConfiguracoesPage() {
       setTestingConnection(false)
     }
   }
+
+  // Carregar configurações da Evolution API ao montar
+  useEffect(() => {
+    const fetchEvolutionConfig = async () => {
+      try {
+        const response = await fetch('/api/evolution/config')
+        if (response.ok) {
+          const data = await response.json()
+          if (data?.evolution_api_url) setEvolutionApiUrl(data.evolution_api_url)
+          if (data?.evolution_api_key) setEvolutionApiKey(data.evolution_api_key)
+        }
+      } catch (err) {
+        // Silencioso
+      }
+    }
+    fetchEvolutionConfig()
+  }, [])
+
+  // Após carregar evolutionApiUrl e evolutionApiKey, testar conexão automaticamente
+  useEffect(() => {
+    if (evolutionApiUrl && evolutionApiKey) {
+      const autoTestConnection = async () => {
+        setTestingConnection(true)
+        setConnectionStatus('idle')
+        try {
+          const response = await fetch('/api/evolution/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const result = await response.json()
+          if (response.ok && result.success) {
+            setConnectionStatus('success')
+          } else {
+            setConnectionStatus('error')
+          }
+        } catch {
+          setConnectionStatus('error')
+        } finally {
+          setTestingConnection(false)
+        }
+      }
+      autoTestConnection()
+    }
+  }, [evolutionApiUrl, evolutionApiKey])
 
   if (loading) {
     return (
@@ -2493,7 +2523,7 @@ export default function ConfiguracoesPage() {
               <Card className="border-0 bg-white/90 shadow-xl backdrop-blur-sm dark:bg-gray-800/90 overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white sm:p-5">
                   <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="rounded-full bg-white/20 p-2.5 backdrop-blur-sm sm:p-3">
+                    <div className="rounded-full bg-white/20 p-2.5 backdrop-sm sm:p-3">
                       <Smartphone className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                     <CardTitle className="text-sm font-semibold sm:text-base lg:text-lg">

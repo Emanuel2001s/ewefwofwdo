@@ -86,8 +86,16 @@ export function ClienteForm({ initialData = null, servidores, planos }: ClienteF
         const planoSelecionado = planos.find(p => p.id.toString() === value)
         if (planoSelecionado && planoSelecionado.duracao_dias) {
           const dataAtivacao = newData.data_ativacao instanceof Date ? newData.data_ativacao : new Date()
-          const dataVencimento = new Date(dataAtivacao)
-          dataVencimento.setDate(dataAtivacao.getDate() + planoSelecionado.duracao_dias)
+          
+          // Definir hora da ativação para 00:00:00
+          const dataAtivacaoInicio = new Date(dataAtivacao.getFullYear(), dataAtivacao.getMonth(), dataAtivacao.getDate(), 0, 0, 0)
+          
+          // Calcular data de vencimento (23:59:59 do último dia)
+          const dataVencimento = new Date(dataAtivacaoInicio)
+          dataVencimento.setDate(dataAtivacaoInicio.getDate() + planoSelecionado.duracao_dias - 1)
+          dataVencimento.setHours(23, 59, 59, 999)
+          
+          newData.data_ativacao = dataAtivacaoInicio
           newData.data_vencimento = dataVencimento
         }
       }
@@ -112,8 +120,15 @@ export function ClienteForm({ initialData = null, servidores, planos }: ClienteF
         if (field === 'data_ativacao' && prev.plano_id) {
           const planoSelecionado = planos.find(p => p.id.toString() === prev.plano_id)
           if (planoSelecionado && planoSelecionado.duracao_dias) {
-            const dataVencimento = new Date(date)
-            dataVencimento.setDate(date.getDate() + planoSelecionado.duracao_dias)
+            // Definir hora da ativação para 00:00:00
+            const dataAtivacaoInicio = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0)
+            
+            // Calcular data de vencimento (23:59:59 do último dia)
+            const dataVencimento = new Date(dataAtivacaoInicio)
+            dataVencimento.setDate(dataAtivacaoInicio.getDate() + planoSelecionado.duracao_dias - 1)
+            dataVencimento.setHours(23, 59, 59, 999)
+            
+            newData.data_ativacao = dataAtivacaoInicio
             newData.data_vencimento = dataVencimento
           }
         }

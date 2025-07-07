@@ -16,8 +16,10 @@ export async function GET() {
     // Não retornar a API Key completa por segurança, apenas indicar se existe
     const hasApiKey = evolutionApiKey.length > 0
     
+    // Retornar a API Key completa para o admin supremo
     return NextResponse.json({
       evolution_api_url: evolutionApiUrl,
+      evolution_api_key: evolutionApiKey,
       has_api_key: hasApiKey,
       api_key_preview: hasApiKey ? evolutionApiKey.substring(0, 8) + '...' : '',
       configured: evolutionApiUrl.length > 0 && hasApiKey

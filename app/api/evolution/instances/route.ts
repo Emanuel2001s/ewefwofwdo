@@ -21,7 +21,8 @@ export async function GET() {
         qr_code,
         webhook_url,
         created_at,
-        updated_at
+        updated_at,
+        is_default
       FROM evolution_instancias 
       ORDER BY created_at DESC
     `) as RowDataPacket[]

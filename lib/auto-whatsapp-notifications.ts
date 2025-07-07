@@ -210,15 +210,15 @@ export async function executeAutoNotifications(): Promise<{
 }
 
 /**
- * Busca instâncias conectadas disponíveis
+ * Busca instâncias conectadas disponíveis, priorizando a instância padrão
  */
 async function getConnectedInstances() {
   try {
     const instances = await executeQuery(`
-      SELECT id, nome, instance_name, status
+      SELECT id, nome, instance_name, status, is_default
       FROM evolution_instancias 
       WHERE status IN ('conectada', 'open')
-      ORDER BY updated_at DESC
+      ORDER BY is_default DESC, updated_at DESC
     `) as RowDataPacket[]
     
     return instances
