@@ -1,0 +1,20 @@
+# Crontab para Dashboard IPTV
+# Formato: minuto hora dia mês dia_da_semana comando
+
+# Processamento de envios em massa (a cada 2 minutos - verifica configuração da campanha)
+*/2 * * * * /app/scripts/processar-envios.sh >> /app/logs/processar-envios.log 2>&1
+
+# Notificações WhatsApp de vencimento (a cada hora - verifica configuração do sistema)
+0 * * * * /app/scripts/whatsapp-notifications.sh >> /app/logs/whatsapp-notifications.log 2>&1
+
+# Atualização de clientes expirados (a cada hora - verifica configuração do sistema)
+0 * * * * /app/scripts/update-expired.sh >> /app/logs/update-expired.log 2>&1
+
+# Limpeza de logs (todo domingo às 3:00 AM)
+0 3 * * 0 /app/scripts/cleanup-logs.sh >> /app/logs/cleanup.log 2>&1
+
+# Health check (a cada 30 minutos)
+*/30 * * * * /app/scripts/health-check.sh >> /app/logs/health-check.log 2>&1
+
+# Sincronização de configurações (a cada 10 minutos)
+*/10 * * * * /app/scripts/sync-config.sh >> /app/logs/sync-config.log 2>&1 

@@ -492,46 +492,23 @@ export default function NovaCampanhaPage() {
       </div>
 
       {/* Indicador de Etapas */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {ETAPAS.map((etapa, index) => {
-          const isAtual = etapa === etapaAtual
-          const isConcluida = index < ETAPAS.indexOf(etapaAtual)
-          const info = ETAPAS_INFO[etapa]
-          const Icone = info.icone
-          
+      <div className="grid grid-cols-1 gap-4">
+        {(() => {
+          const etapa = etapaAtual;
+          const info = ETAPAS_INFO[etapa];
+          const Icone = info.icone;
           return (
             <Card 
               key={etapa}
-              className={`relative ${
-                isAtual 
-                  ? 'ring-2 ring-blue-500'
-                  : isConcluida
-                    ? 'bg-blue-50 dark:bg-blue-900/20'
-                    : ''
-              }`}
+              className="relative ring-2 ring-blue-500"
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className={`
-                    rounded-full p-2
-                    ${isAtual 
-                      ? 'bg-blue-100 text-blue-600'
-                      : isConcluida
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'bg-gray-100 text-gray-400'
-                    }
-                  `}>
+                  <div className="rounded-full p-2 bg-blue-100 text-blue-600">
                     <Icone className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className={`
-                      font-medium
-                      ${isAtual 
-                        ? 'text-blue-600'
-                        : isConcluida
-                          ? 'text-gray-900 dark:text-white'
-                          : 'text-gray-600 dark:text-gray-400'
-                      }`}>
+                    <p className="font-medium text-blue-600">
                       {info.nome}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -541,8 +518,8 @@ export default function NovaCampanhaPage() {
                 </div>
               </CardContent>
             </Card>
-          )
-        })}
+          );
+        })()}
       </div>
 
       {/* Conteúdo da Etapa */}
