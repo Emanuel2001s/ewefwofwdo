@@ -10,6 +10,9 @@ COPY package*.json ./
 # Instalar dependências
 RUN npm install --production
 
+# Copiar tsconfig.json explicitamente
+COPY tsconfig.json ./tsconfig.json
+
 # Copiar o restante do código
 COPY . .
 
