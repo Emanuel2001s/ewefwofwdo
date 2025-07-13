@@ -3,16 +3,25 @@ import { ClienteForm } from "@/components/cliente-form";
 import { executeQuery } from "@/lib/db";
 
 async function getServidores() {
+  if (process.env.SKIP_DB === "true") {
+    return [];
+  }
   const result = await executeQuery("SELECT id, nome FROM servidores ORDER BY nome ASC");
   return result as { id: number; nome: string }[];
 }
 
 async function getPlanos() {
+  if (process.env.SKIP_DB === "true") {
+    return [];
+  }
   const result = await executeQuery("SELECT id, nome, valor, duracao_dias FROM planos ORDER BY nome ASC");
   return result as { id: number; nome: string; valor: number; duracao_dias: number }[];
 }
 
 async function getCliente(id: string) {
+  if (process.env.SKIP_DB === "true") {
+    return null;
+  }
   const cliente = await executeQuery(
     `
     SELECT c.*,

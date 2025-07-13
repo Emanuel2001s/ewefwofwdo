@@ -5,6 +5,9 @@ import { notFound } from "next/navigation"
 import { RowDataPacket } from "mysql2"
 
 async function getServidor(id: number): Promise<{ id: number; nome: string } | null> {
+  if (process.env.SKIP_DB === "true") {
+    return null;
+  }
   const result = (await executeQuery("SELECT id, nome FROM servidores WHERE id = ?", [id])) as RowDataPacket[]
   return result.length > 0 ? (result[0] as { id: number; nome: string }) : null
 }

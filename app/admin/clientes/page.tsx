@@ -9,11 +9,24 @@ import { isAdminSupremo } from "@/lib/admin-middleware"
 import { RowDataPacket } from "mysql2"
 
 async function getServidores() {
+  if (process.env.SKIP_DB === "true") {
+    return [];
+  }
   const result = await executeQuery("SELECT id, nome FROM servidores ORDER BY nome ASC") as RowDataPacket[]
   return result as { id: number; nome: string; }[]
 }
 
 async function getClientesStats() {
+  if (process.env.SKIP_DB === "true") {
+    return {
+      total: 0,
+      ativos: 0,
+      inativos: 0,
+      vencendo_hoje: 0,
+      vencidos: 0,
+      vencendo_proximos_dias: 0
+    }
+  }
   // Primeiro, atualizar clientes vencidos automaticamente
   await updateExpiredClients()
 
