@@ -25,4 +25,6 @@ const nextConfig = {
   }
 }
 
+console.log("SKIP_DB em next.config.mjs:", process.env.SKIP_DB);
+
 export default nextConfig
