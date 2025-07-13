@@ -13,6 +13,9 @@ RUN npm install --production
 # Copiar o restante do código
 COPY . .
 
+# Limpar cache do Next.js antes do build
+RUN rm -rf .next
+
 # Build do projeto Next.js
 RUN npm run build
 
