@@ -81,6 +81,10 @@ export async function executeQuery(
   params: any[] = [],
   noCache: boolean = false
 ) {
+  if (process.env.SKIP_DB === "true") {
+    console.log("SKIP_DB ativo: executeQuery não será executado.");
+    return [];
+  }
   // Validar parâmetros
   if (!query?.trim()) {
     throw new Error("Query não pode ser vazia")
