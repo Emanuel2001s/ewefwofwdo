@@ -9,9 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ["mysql2"],
-  },
+  serverExternalPackages: ["mysql2"],
   webpack: (config) => {
     config.externals = [...config.externals, 'mysql2']
     config.resolve.fallback = {
