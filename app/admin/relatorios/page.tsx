@@ -47,16 +47,6 @@ interface ReceitaPorPlano {
 
 // Função para buscar estatísticas gerais
 async function getDashboardStats(): Promise<DashboardStats> {
-  if (process.env.SKIP_DB === "true") {
-    return {
-      total_clientes: 0,
-      clientes_ativos: 0,
-      clientes_inativos: 0,
-      total_receita_mes: 0,
-      receita_pendente: 0,
-      clientes_vencendo: 0,
-    }
-  }
   const [stats] = await executeQuery(`
     SELECT 
       COUNT(*) as total_clientes,
@@ -74,9 +64,6 @@ async function getDashboardStats(): Promise<DashboardStats> {
 
 // Função para buscar clientes detalhados
 async function getClientesRelatorio(): Promise<ClienteRelatorio[]> {
-  if (process.env.SKIP_DB === "true") {
-    return []
-  }
   const clientes = await executeQuery(`
     SELECT 
       c.id,
@@ -99,9 +86,6 @@ async function getClientesRelatorio(): Promise<ClienteRelatorio[]> {
 
 // Função para buscar receita por plano
 async function getReceitaPorPlano(): Promise<ReceitaPorPlano[]> {
-  if (process.env.SKIP_DB === "true") {
-    return []
-  }
   const receita = await executeQuery(`
     SELECT 
       p.nome as plano_nome,

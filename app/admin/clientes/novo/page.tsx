@@ -3,17 +3,11 @@ import { executeQuery } from "@/lib/db"
 import { RowDataPacket } from "mysql2"
 
 async function getServidores() {
-  if (process.env.SKIP_DB === "true") {
-    return [];
-  }
   const result = await executeQuery("SELECT id, nome FROM servidores ORDER BY nome ASC") as RowDataPacket[]
   return result as { id: number; nome: string; }[]
 }
 
 async function getPlanos() {
-  if (process.env.SKIP_DB === "true") {
-    return [];
-  }
   const result = await executeQuery("SELECT id, nome, valor, duracao_dias FROM planos ORDER BY nome ASC") as RowDataPacket[]
   return result as { id: number; nome: string; valor: number; duracao_dias: number; }[]
 }

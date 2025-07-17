@@ -8,21 +8,6 @@ import { updateExpiredClients } from "@/lib/auto-update-clients"
 import { cookies } from "next/headers"
 
 async function getDashboardStats() {
-  if (process.env.SKIP_DB === "true") {
-    // Dados mockados para build sem banco
-    return {
-      clientes: {
-        total: 0,
-        ativos: 0,
-        inativos: 0,
-        vencendo_hoje: 0,
-        vencidos: 0,
-        vencendo_proximos_dias: 0,
-      },
-      planos: 0,
-      servidores: 0,
-    }
-  }
   // Primeiro, atualizar clientes vencidos automaticamente
   await updateExpiredClients()
   
@@ -58,13 +43,6 @@ async function getDashboardStats() {
 }
 
 async function getRecentActivities() {
-  if (process.env.SKIP_DB === "true") {
-    return {
-      recent: [],
-      expiring: [],
-      renewed: []
-    }
-  }
   // Buscar atividades recentes baseadas nos dados reais disponíveis
   const [recentClients, expiringClients, activeClients] = await Promise.all([
     // Últimos clientes cadastrados (baseado no ID - maiores IDs são mais recentes)

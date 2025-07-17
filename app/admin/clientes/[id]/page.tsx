@@ -8,9 +8,6 @@ import { executeQuery } from "@/lib/db"
 import { format } from "date-fns"
 
 async function getCliente(id: string) {
-  if (process.env.SKIP_DB === "true") {
-    return null;
-  }
   const cliente = await executeQuery(
     `
     SELECT c.*, p.nome as plano_nome, p.valor as plano_valor, s.nome as servidor_nome

@@ -1,13 +1,7 @@
 import { executeQuery } from "./db"
 import { OkPacket } from "mysql2"
 
-console.log("SKIP_DB em auto-update-clients.ts:", process.env.SKIP_DB);
-
 export async function updateExpiredClients(): Promise<{ updated: number; message: string }> {
-  if (process.env.SKIP_DB === "true") {
-    console.log("SKIP_DB ativo: updateExpiredClients não será executado.");
-    return { updated: 0, message: "SKIP_DB ativo: atualização ignorada" };
-  }
   try {
     // Atualizar automaticamente clientes vencidos para inativo
     const result = await executeQuery(`

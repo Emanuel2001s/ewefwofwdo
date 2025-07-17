@@ -1,0 +1,287 @@
+# ========================================
+# DOCKER IGNORE - DASHBOARD IPTV
+# ========================================
+# Arquivos e diretórios que não devem ser
+# incluídos na imagem Docker
+
+# ========================================
+# NODE.JS
+# ========================================
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ========================================
+# NEXT.JS
+# ========================================
+.next/
+out/
+build/
+dist/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# ========================================
+# VARIÁVEIS DE AMBIENTE
+# ========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.example
+
+# ========================================
+# LOGS
+# ========================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ========================================
+# RUNTIME DATA
+# ========================================
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ========================================
+# COVERAGE E TESTES
+# ========================================
+lib-cov
+coverage
+*.lcov
+.nyc_output
+.grunt
+bower_components
+.lock-wscript
+
+# ========================================
+# DEPENDENCY DIRECTORIES
+# ========================================
+node_modules/
+jspm_packages/
+
+# ========================================
+# TYPESCRIPT
+# ========================================
+*.tsbuildinfo
+
+# ========================================
+# OPTIONAL NPM CACHE
+# ========================================
+.npm
+.eslintcache
+.stylelintcache
+
+# ========================================
+# MICROBUNDLE CACHE
+# ========================================
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# ========================================
+# OPTIONAL ESLINT CACHE
+# ========================================
+.eslintcache
+
+# ========================================
+# OUTPUT OF 'NPM PACK'
+# ========================================
+*.tgz
+
+# ========================================
+# YARN INTEGRITY FILE
+# ========================================
+.yarn-integrity
+
+# ========================================
+# PARCEL-BUNDLER CACHE
+# ========================================
+.cache
+.parcel-cache
+
+# ========================================
+# NEXT.JS BUILD OUTPUT
+# ========================================
+.next
+out
+
+# ========================================
+# NUXT.JS BUILD / GENERATE OUTPUT
+# ========================================
+.nuxt
+dist
+
+# ========================================
+# GATSBY FILES
+# ========================================
+.cache/
+public
+
+# ========================================
+# VUEPRESS BUILD OUTPUT
+# ========================================
+.vuepress/dist
+
+# ========================================
+# SERVERLESS DIRECTORIES
+# ========================================
+.serverless/
+
+# ========================================
+# FUSEBOX CACHE
+# ========================================
+.fusebox/
+
+# ========================================
+# DYNAMODB LOCAL FILES
+# ========================================
+.dynamodb/
+
+# ========================================
+# TERNJS PORT FILE
+# ========================================
+.tern-port
+
+# ========================================
+# STORES VSCode VERSIONS
+# ========================================
+.vscode-test
+
+# ========================================
+# YARN V2
+# ========================================
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ========================================
+# SISTEMA OPERACIONAL
+# ========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# ========================================
+# EDITORES
+# ========================================
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Sublime Text
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# ========================================
+# GIT
+# ========================================
+.git
+.gitignore
+.gitattributes
+
+# ========================================
+# DOCKER
+# ========================================
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# ========================================
+# DOCUMENTAÇÃO
+# ========================================
+README.md
+DEPLOY_DOKPLOY.md
+*.md
+docs/
+
+# ========================================
+# SCRIPTS E BACKUPS
+# ========================================
+scripts/
+backups/
+*.sql
+
+# ========================================
+# UPLOADS (MANTER ESTRUTURA)
+# ========================================
+# Não ignorar a pasta uploads, mas ignorar conteúdo
+# uploads/*
+# !uploads/.gitkeep
+
+# ========================================
+# ARQUIVOS TEMPORÁRIOS
+# ========================================
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ========================================
+# CERTIFICADOS E CHAVES
+# ========================================
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# ========================================
+# ARQUIVOS DE CONFIGURAÇÃO LOCAL
+# ========================================
+.env*
+!.env.example
+config.local.js
+
+# ========================================
+# FERRAMENTAS DE BUILD
+# ========================================
+.turbo
+.swc
