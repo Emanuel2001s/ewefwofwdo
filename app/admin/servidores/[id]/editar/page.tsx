@@ -4,6 +4,10 @@ import { executeQuery } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { RowDataPacket } from "mysql2"
 
+// Força dynamic rendering para evitar execução durante o build
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getServidor(id: number): Promise<{ id: number; nome: string } | null> {
   const result = (await executeQuery("SELECT id, nome FROM servidores WHERE id = ?", [id])) as RowDataPacket[]
   return result.length > 0 ? (result[0] as { id: number; nome: string }) : null
@@ -36,4 +40,4 @@ export default async function EditarServidorPage({ params }: { params: Promise<{
       </Card>
     </div>
   )
-} 
+}

@@ -16,6 +16,10 @@ import {
 import { executeQuery } from "@/lib/db"
 import { RowDataPacket } from "mysql2"
 
+// Força dynamic rendering para evitar execução durante o build
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // Interfaces para os dados
 interface DashboardStats {
   total_clientes: number
@@ -289,4 +293,4 @@ export default async function RelatoriosPage() {
       </div>
     </ResponsiveContainer>
   )
-} 
+}

@@ -19,11 +19,15 @@ COPY . .
 # Limpar cache do Next.js antes do build
 RUN rm -rf .next
 
-# Build do projeto Next.js
+# Build do projeto Next.js com SKIP_DB para evitar conexões durante build
+ENV SKIP_DB=true
 RUN npm run build
+
+# Remover SKIP_DB para runtime
+ENV SKIP_DB=
 
 # Expor a porta padrão do Next.js
 EXPOSE 3000
 
 # Comando para iniciar a aplicação
-CMD ["npm", "start"] 
+CMD ["npm", "start"]

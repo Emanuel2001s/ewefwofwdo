@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { ClienteForm } from "@/components/cliente-form";
 import { executeQuery } from "@/lib/db";
 
+// Força dynamic rendering para evitar execução durante o build
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getServidores() {
   const result = await executeQuery("SELECT id, nome FROM servidores ORDER BY nome ASC");
   return result as { id: number; nome: string }[];
@@ -63,4 +67,4 @@ export default async function EditarClientePage({ params }: { params: { id: stri
   return (
     <ClienteForm key={cliente.id} servidores={servidores} planos={planos} initialData={initialData} />
   );
-} 
+}

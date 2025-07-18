@@ -8,6 +8,10 @@ import { ptBR } from "date-fns/locale"
 import { RowDataPacket } from "mysql2"
 import { ClienteDashboardMobile } from "@/components/ui/client-dashboard-mobile"
 
+// Força dynamic rendering para evitar execução durante o build
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getClienteData(usuario: string) {
   const cliente = await executeQuery(
     `

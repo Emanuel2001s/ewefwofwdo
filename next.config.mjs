@@ -24,5 +24,12 @@ const nextConfig = {
 }
 
 console.log("SKIP_DB em next.config.mjs:", process.env.SKIP_DB);
+console.log("NODE_ENV em next.config.mjs:", process.env.NODE_ENV);
+console.log("Todas as env vars relacionadas a DB:", {
+  SKIP_DB: process.env.SKIP_DB,
+  DB_HOST: process.env.DB_HOST,
+  DB_NAME: process.env.DB_NAME,
+  NODE_ENV: process.env.NODE_ENV
+});
 
 export default nextConfig

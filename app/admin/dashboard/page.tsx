@@ -7,6 +7,10 @@ import { ResponsiveContainer, ResponsivePageHeader, ResponsiveGrid } from "@/com
 import { updateExpiredClients } from "@/lib/auto-update-clients"
 import { cookies } from "next/headers"
 
+// Força dynamic rendering para evitar execução durante o build
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getDashboardStats() {
   // Primeiro, atualizar clientes vencidos automaticamente
   await updateExpiredClients()

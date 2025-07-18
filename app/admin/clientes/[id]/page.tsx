@@ -7,6 +7,10 @@ import { CalendarIcon, Edit, Monitor, Smartphone, Laptop, Tv } from "lucide-reac
 import { executeQuery } from "@/lib/db"
 import { format } from "date-fns"
 
+// Força dynamic rendering para evitar execução durante o build
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getCliente(id: string) {
   const cliente = await executeQuery(
     `

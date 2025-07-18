@@ -81,6 +81,17 @@ export async function executeQuery(
   params: any[] = [],
   noCache: boolean = false
 ) {
+  // Verificar se deve pular conexão com banco durante build
+  if (process.env.SKIP_DB === 'true') {
+    console.log('🚫 SKIP_DB ativo - Pulando execução da query:', query.substring(0, 50) + '...')
+    // Retornar dados mock baseados no tipo de query
+    if (query.trim().toUpperCase().startsWith('SELECT')) {
+      return [] // Array vazio para SELECTs
+    } else {
+      return { affectedRows: 0, insertId: 0 } // Mock para INSERT/UPDATE/DELETE
+    }
+  }
+
   // Validar parâmetros
   if (!query?.trim()) {
     throw new Error("Query não pode ser vazia")
