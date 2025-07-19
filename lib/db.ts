@@ -82,7 +82,11 @@ export async function executeQuery(
   noCache: boolean = false
 ) {
   // Verificar se deve pular conexão com banco durante build
-  if (process.env.SKIP_DB === 'true') {
+  // Considera tanto 'true' quanto valores vazios como indicação para pular
+  const skipDb = process.env.SKIP_DB
+  console.log('🔍 Debug SKIP_DB:', { skipDb, type: typeof skipDb, isEmpty: skipDb === '', isTrue: skipDb === 'true' })
+  
+  if (skipDb === 'true') {
     console.log('🚫 SKIP_DB ativo - Pulando execução da query:', query.substring(0, 50) + '...')
     // Retornar dados mock baseados no tipo de query
     if (query.trim().toUpperCase().startsWith('SELECT')) {
@@ -91,6 +95,14 @@ export async function executeQuery(
       return { affectedRows: 0, insertId: 0 } // Mock para INSERT/UPDATE/DELETE
     }
   }
+  
+  // Log das configurações de conexão para debug
+  console.log('🔍 Configurações de conexão:', {
+    DB_HOST: process.env.DB_HOST,
+    DB_USER: process.env.DB_USER,
+    DB_NAME: process.env.DB_NAME,
+    NODE_ENV: process.env.NODE_ENV
+  })
 
   // Validar parâmetros
   if (!query?.trim()) {
