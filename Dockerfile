@@ -23,8 +23,8 @@ RUN rm -rf .next
 ENV SKIP_DB=true
 RUN npm run build
 
-# Remover SKIP_DB para runtime (unset remove completamente a variável)
-RUN unset SKIP_DB
+# Definir SKIP_DB como string vazia para runtime (será interpretado como false)
+ENV SKIP_DB=
 
 # Expor a porta padrão do Next.js
 EXPOSE 3000
